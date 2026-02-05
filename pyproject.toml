@@ -1,0 +1,103 @@
+[project]
+name = "pytermite"
+dynamic = ["version"]
+description = "Control your GoPro swarm with ease using Python."
+authors = [
+    { name = "Lukas Behammer", email = "lukas.behammer@uni-a.de" },
+]
+readme = "README.md"
+requires-python = ">=3.12"
+keywords = [
+    "GoPro",
+    "USB control",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Private :: Do Not Upload", # !: Remove before publishing
+]
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
+dependencies = [
+    "open-gopro",
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "twine",
+    "ruff",
+    "mypy",
+]
+
+[project.urls]
+#Repository
+#Homepage
+#Documentation
+#Tracker
+#Download
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+######################################################################
+# Setuptools
+[tool.setuptools.dynamic]
+version = {attr = "pytermite.__version__"}
+
+######################################################################
+# Ruff
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+preview = true
+select = [
+    "A",
+    "ARG",
+    "B",
+    "C4",
+    "C90",
+    "CPY",
+    "E",
+    "F",
+    "I",
+    "ICN",
+    "N",
+    "PT",
+    "PTH",
+    "RET",
+    "W",
+]
+ignore = [
+    "E111",
+    "E114",
+    "E117",
+    "W191",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.isort]
+known-first-party = ["src/pytermite"]
+
+
+######################################################################
+# MyPy
+[tool.mypy]
+exclude = [
+    "build",
+    "dist",
+]
+files = "src/pytermite"
+strict = false
+pretty = true
+disable_error_code = ["import-not-found"]
