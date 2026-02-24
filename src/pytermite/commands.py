@@ -5,10 +5,16 @@
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
+import asyncio
+
+import aiohttp
 import requests
+import structlog
 
 from pytermite.connection import WiredConnection
-from pytermite.utils import create_base_url, reverse_dict, serialize_dict
+from pytermite.utils import create_base_url, serialize_dict
+
+logger = structlog.get_logger()
 
 
 async def get_camera_info(connected_gopros: set[WiredConnection]) -> dict[str, dict]:
@@ -45,6 +51,22 @@ async def get_preset_status(connected_gopros: set[WiredConnection]):
     return preset_state
 
 
-async def start_camera_recording(connected_gopros: set[WiredConnection]):
-    for camera in connected_gopros:
-        await camera.http_command.set_shutter()
+async def camera_shutter(connected_gopros: set[WiredConnection], mode: str = "start"):
+    if len(connected_gopros) == 0:
+        logger.warning("No connected GoPro cameras found. Please connect at least one camera.")
+        return
+
+    urls = []
+    for connection in connected_gopros:
+        # Manual HTTP request as preset status is currently not working in open_gopro
+        url = create_base_url(connection.identifier) + f"/shutter/{mode}"
+        urls.append(url)
+
+    if mode == "start":
+        logger.info("Starting recording on all connected GoPro cameras")
+    else:
+        logger.info("Stopping recording on all connected GoPro cameras")
+
+    async with aiohttp.ClientSession() as session:
+        tasks = [session.get(url) for url in urls]
+        await asyncio.gather(*tasks)

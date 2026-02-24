@@ -13,7 +13,9 @@ from pathlib import Path
 import click
 import structlog
 from click import UsageError
+from open_gopro.models.constants import Toggle
 
+from pytermite.commands import camera_shutter
 from pytermite.connection import (
     WiredConnection,
     close_gopros,
@@ -234,8 +236,22 @@ def disconnect():
         run_repl(click.get_current_context())
 
 
+@click.command()
+@click.argument("action", type=click.Choice(["start", "stop"]))
+def record(action):
+    log = logger.bind(command="record")
+    global CONNECTED_GOPROS
+    try:
+        asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
+    except RuntimeError as e:
+        log.error(str(e))
+    if KEEP_OPEN:
+        run_repl(click.get_current_context())
+
+
 cli.add_command(scan)
 cli.add_command(connect)
+cli.add_command(record)
 cli.add_command(disconnect)
 
 
