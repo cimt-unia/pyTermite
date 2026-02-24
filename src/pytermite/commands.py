@@ -15,9 +15,7 @@ async def get_camera_info(connected_gopros: set[WiredConnection]) -> dict[str, d
     camera_information = {}
     for connection in connected_gopros:
         info = await connection.http_command.get_camera_info()
-        camera_information[connection.name] = (
-            serialize_dict(info.data.__dict__)
-        )
+        camera_information[connection.name] = serialize_dict(info.data.__dict__)
     return camera_information
 
 
@@ -25,9 +23,7 @@ async def get_camera_status(connected_gopros: set[WiredConnection]):
     camera_state = {}
     for connection in connected_gopros:
         state = await connection.http_command.get_camera_state()
-        camera_state[connection.name] = (
-            serialize_dict(state.data)
-        )
+        camera_state[connection.name] = serialize_dict(state.data)
     return camera_state
 
 
@@ -45,9 +41,7 @@ async def get_preset_status(connected_gopros: set[WiredConnection]):
         # state = await connection.http_command.get_preset_status()
         # state = state.data
 
-        preset_state[connection.name] = (
-            serialize_dict(state)
-        )
+        preset_state[connection.name] = serialize_dict(state)
     return preset_state
 
 

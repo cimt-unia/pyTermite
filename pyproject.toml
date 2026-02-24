@@ -26,6 +26,10 @@ license-files = ["LICENSE.txt"]
 dependencies = [
     "open-gopro",
     "requests",
+    "aiohttp",
+    "structlog",
+    "rich",
+    "click",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +46,9 @@ dev = [
 #Documentation
 #Tracker
 #Download
+
+[project.scripts]
+pytermite = "pytermite.pytermite:cli"
 
 [build-system]
 requires = ["setuptools"]

@@ -1,2 +1,6 @@
 open-gopro
 requests
+aiohttp
+structlog
+rich
+click

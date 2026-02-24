@@ -5,10 +5,12 @@
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
+import asyncio
 import json
 import pathlib
 from dataclasses import asdict, is_dataclass
 from enum import Enum
+from functools import wraps
 
 
 def load_serial_numbers_from_json(filepath: pathlib.Path | str) -> dict[str, str]:
