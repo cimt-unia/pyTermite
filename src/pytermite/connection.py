@@ -68,42 +68,42 @@ async def connect_gopros(gopros: dict[str, WiredConnection]):
             await logger.ainfo(f"Connected to {await gopro.name}")
             yield gopro
         except ResponseTimeout as e:
-            await logger.awarning(
+            await logger.aerror(
                 f"Failed to connect to GoPro {cam_name} with serial "
-                f"{gopro.identifier}: {e}"
+                f"{gopro.identifier}", error=str(e)
             )
 
 
 async def close_gopros(gopros: dict[str, WiredConnection]):
     for _, gopro in gopros.items():
         await gopro.close()
-        logger.info(f"Disconnected from {await gopro.name}")
+        logger.debug(f"Disconnected from {await gopro.name}")
 
 
 async def wait_for_user_interrupt() -> None:
     global INTERRUPT
     while not INTERRUPT:
-        await ainput("Press Enter to stop scanning and exit...\n")
-        click.echo("Exiting...")
+        await ainput("Press Enter to stop scanning...\n")
+        await logger.ainfo("Stopping...")
         INTERRUPT = True
 
 
 async def wait_for_timeout(timeout: int) -> None:
+    await logger.ainfo(f"Waiting for {timeout} seconds...")
     global INTERRUPT
     while not INTERRUPT:
         await asyncio.sleep(timeout)
-        click.echo("Timeout reached. Exiting...")
+        await logger.ainfo("Timeout reached. Stopping...")
         INTERRUPT = True
 
 
 async def scan_for_gopros(timeout: int = 10) -> set[str]:
     """Scan for connected GoPro devices via USB connection and print their names."""
     async with asyncio.TaskGroup() as tg:
-        tg.create_task(scan_for_gopros_usb())
+        gopros = tg.create_task(scan_for_gopros_usb())
         # tg.create_task(wait_for_user_interrupt())
         tg.create_task(wait_for_timeout(timeout))
-    global GOPROS
-    return GOPROS
+    return gopros.result()
 
 
 async def scan_for_gopros_usb() -> set[str]:
@@ -116,7 +116,7 @@ async def scan_for_gopros_usb() -> set[str]:
             )
             name = response.name.split(".")[0]
             if name not in GOPROS:
-                click.echo(f"Found new GoPro device with serial: {name}")
+                await logger.ainfo(f"Found new GoPro device with serial: {name}")
             GOPROS.add(name)
         except FailedToFindDevice:
             continue
