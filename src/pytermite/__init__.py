@@ -1,8 +1,16 @@
-"""
-pyTermite is a Python package to control multiple GoPro cameras via USB connection.
+"""pyTermite is a small package to control multiple GoPro cameras via USB connection.
 
-It allows users to connect to multiple GoPro devices, retrieve camera information
-and status, and start/stop recording on all connected cameras simultaneously.
+Short summary
+-------------
+Provides utilities to discover, connect to and control multiple GoPro devices
+connected over USB. The package exposes convenience helpers and a CLI for
+interactive use.
+
+Examples
+--------
+>>> import pytermite
+>>> pytermite.get_version()
+'0.0.1'
 """
 
 #  Copyright (c) 2026 by Lukas Behammer
@@ -27,7 +35,7 @@ import pytermite.connection as connection
 import pytermite.utils as utils
 
 
-def get_version():
+def get_version() -> str:
     """
     Return the version of the pyTermite package.
 

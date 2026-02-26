@@ -1,3 +1,11 @@
+"""Connection helpers for discovering and managing wired GoPro devices.
+
+Short summary
+-------------
+Utilities to create connection objects for GoPro devices, scan for devices over
+USB/mdns, and manage open/close life-cycle of WiredConnection objects.
+"""
+
 #  Copyright (c) 2026 by Lukas Behammer
 #  University of Augsburg
 #  Department of Computer Science
@@ -28,22 +36,40 @@ INTERRUPT = False
 # Get serial_numbers path from environment variable
 SERIALS_PATH = os.getenv("PYTERMITE_SERIALS_PATH", None)
 SERIALS = (
-    load_serial_numbers_from_json(pathlib.Path(SERIALS_PATH))
-    if SERIALS_PATH
-    else {}
+    load_serial_numbers_from_json(pathlib.Path(SERIALS_PATH)) if SERIALS_PATH else {}
 )
 
 
 class WiredConnection(WiredGoPro):
-    """Subclass of WiredGoPro to allow future extensions."""
+    """Subclass of WiredGoPro providing a cached human-readable name.
+
+    Attributes
+    ----------
+    _name : str | None
+        Cached camera name (may be populated on first access).
+    """
 
     def __init__(self, **kwargs):
-        name = kwargs.pop("name", None)
+        # accept optional 'name' kwarg for compatibility but do not use it
+        kwargs.pop("name", None)
         super().__init__(**kwargs)
         self._name: str | None = None
+        self.serial = self._serial
 
     @property
-    async def name(self):
+    async def name(self) -> str:
+        """
+        Asynchronously return the human-friendly name of the camera.
+
+        If the name has not been determined yet this will query the camera for
+        its information via the HTTP API and fall back to a name derived from
+        the serial numbers mapping.
+
+        Returns
+        -------
+        str
+            The camera name.
+        """
         if not self._name:
             info = serialize_dict(
                 (await self.http_command.get_camera_info()).data.__dict__
@@ -54,8 +80,22 @@ class WiredConnection(WiredGoPro):
 
 
 def create_wired_gopros(
-    gopro_serials: dict[str, str] | set[str]
+    gopro_serials: dict[str, str] | set[str],
 ) -> dict[str, WiredConnection]:
+    """
+    Create WiredConnection objects for provided serial numbers.
+
+    Parameters
+    ----------
+    gopro_serials : dict[str, str] | set[str]
+        Mapping from camera name to serial number, or a set of serial numbers.
+
+    Returns
+    -------
+    dict[str, WiredConnection]
+        Mapping from provided key (camera name or serial) to a WiredConnection
+        instance.
+    """
     gopros = {}
     if isinstance(gopro_serials, dict):
         for cam_name, serial_number in gopro_serials.items():
@@ -67,6 +107,21 @@ def create_wired_gopros(
 
 
 async def connect_gopros(gopros: dict[str, WiredConnection]):
+    """
+    Attempt to open a connection to each provided WiredConnection.
+
+    This is an async generator that yields each connected WiredConnection.
+
+    Parameters
+    ----------
+    gopros : dict[str, WiredConnection]
+        Mapping of camera keys to WiredConnection objects to connect.
+
+    Yields
+    ------
+    WiredConnection
+        Each successfully connected WiredConnection object.
+    """
     for cam_name, gopro in gopros.items():
         try:
             await gopro.open(retries=1, timeout=1)
@@ -74,21 +129,32 @@ async def connect_gopros(gopros: dict[str, WiredConnection]):
             yield gopro
         except ResponseTimeout as e:
             await logger.aerror(
-                f"Failed to connect to GoPro {cam_name} with serial "
-                f"{gopro.identifier}", error=str(e)
+                f"Failed to connect to GoPro {cam_name} with serial {gopro.identifier}",
+                error=str(e),
             )
 
 
-async def close_gopros(gopros: dict[str, WiredConnection]):
+async def close_gopros(gopros: dict[str, WiredConnection]) -> None:
+    """
+    Close all provided WiredConnection objects.
+
+    Parameters
+    ----------
+    gopros : dict[str, WiredConnection]
+        Mapping of camera keys to WiredConnection objects to close.
+    """
     for _, gopro in gopros.items():
         await gopro.close()
         logger.debug(f"Disconnected from {await gopro.name}")
 
 
 async def wait_for_user_interrupt() -> None:
-    """Wait for the user to press Enter using a non-blocking stdin reader.
+    """
+    Wait for the user to press Enter using a non-blocking stdin reader.
 
-    This uses the event loop's add_reader API so the waiter can be cancelled
+    Notes
+    -----
+    Uses the event loop's add_reader API so the waiter can be cancelled
     immediately (the reader is removed in the finally block). This avoids the
     problem where awaiting a blocking input call prevents task cancellation.
     """
@@ -111,23 +177,16 @@ async def wait_for_user_interrupt() -> None:
                 _ = os.read(fd, 4096)
             except Exception:
                 # fallback to readline if os.read fails for any reason
-                try:
-                    _ = sys.stdin.readline()
-                except Exception:
-                    pass
+                _ = sys.stdin.readline()
         except Exception:
-            pass
+            logger.warning(
+                "Failed to read user input for interrupt signal", exc_info=True
+            )
         # log asynchronously; schedule it on the loop
-        try:
-            loop.create_task(logger.ainfo("Stopping..."))
-        except Exception:
-            pass
+        loop.create_task(logger.ainfo("Stopping..."))
         # set global flag and notify the waiting coroutine
-        try:
-            global INTERRUPT
-            INTERRUPT = True
-        except Exception:
-            pass
+        global INTERRUPT
+        INTERRUPT = True
         event.set()
 
     # Register the reader and await the event. Use the file descriptor
@@ -141,10 +200,20 @@ async def wait_for_user_interrupt() -> None:
         try:
             loop.remove_reader(fd)
         except Exception:
-            pass
+            logger.warning(
+                "Failed to remove stdin reader for user interrupt", exc_info=True
+            )
 
 
 async def wait_for_timeout(timeout: int) -> None:
+    """
+    Wait for the given timeout and set the global interrupt flag.
+
+    Parameters
+    ----------
+    timeout : int
+        Seconds to wait before setting the interrupt flag.
+    """
     await logger.ainfo(f"Waiting for {timeout} seconds...")
     global INTERRUPT
     while not INTERRUPT:
@@ -154,13 +223,24 @@ async def wait_for_timeout(timeout: int) -> None:
 
 
 async def scan_for_gopros(timeout: int = 10) -> set[str]:
-    """Scan for connected GoPro devices via USB connection and print their names.
+    """
+    Scan for connected GoPro devices via USB connection and return a set of serials.
 
     The scan runs until either the user requests to stop (press Enter) or the
     timeout task fires. Both are executed concurrently alongside the USB
     scanning task. When one of the stop conditions completes, all remaining
     tasks are cancelled so the function returns immediately instead of waiting
     for the timeout to finish.
+
+    Parameters
+    ----------
+    timeout : int, optional
+        Maximum seconds to wait for discovery. Default is 10.
+
+    Returns
+    -------
+    set[str]
+        Set of discovered device serial numbers (strings).
     """
     global INTERRUPT, GOPROS
     # reset state for each invocation
@@ -180,7 +260,9 @@ async def scan_for_gopros(timeout: int = 10) -> set[str]:
     # Cancel any tasks that are still pending so we don't wait for the timeout
     # (or the user input) to finish after one condition has fired.
     for p in pending:
-        logger.debug(f"Cancelling pending task: {p.get_coro().__name__}")
+        logger.debug(
+            f"Cancelling pending task: {p.get_coro().__name__}"  # type: ignore
+        )
         p.cancel()
 
     # Ensure pending tasks are awaited to suppress warnings and allow proper
@@ -197,7 +279,9 @@ async def scan_for_gopros(timeout: int = 10) -> set[str]:
             try:
                 await scan_task
             except Exception:
-                pass
+                logger.warning(
+                    "Failed to cancel scan task after timeout", exc_info=True
+                )
 
     # If scan_task completed normally, return its result; otherwise return the
     # current GOPROS set which reflects discovered devices so far.
@@ -210,6 +294,14 @@ async def scan_for_gopros(timeout: int = 10) -> set[str]:
 
 
 async def scan_for_gopros_usb() -> set[str]:
+    """
+    Continuously scan for GoPro devices via mDNS until interrupted.
+
+    Returns
+    -------
+    set[str]
+        Set of discovered device serial numbers (strings).
+    """
     global GOPROS
     global INTERRUPT
     while not INTERRUPT:

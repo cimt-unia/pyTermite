@@ -1,3 +1,11 @@
+"""pyTermite command line interface and REPL utilities.
+
+Short summary
+-------------
+Provides a Click-based CLI for discovering, connecting to and controlling
+multiple GoPro devices. Includes an interactive REPL for repeated commands.
+"""
+
 #  Copyright (c) 2026 by Lukas Behammer
 #  University of Augsburg
 #  Department of Computer Science
@@ -7,13 +15,13 @@
 
 import asyncio
 import atexit
+import enum
 import shlex
 from pathlib import Path
 
 import click
 import structlog
 from click import UsageError
-from open_gopro.models.constants import Toggle
 
 from pytermite.commands import camera_shutter
 from pytermite.connection import (
@@ -30,11 +38,18 @@ GOPROS: dict[str, WiredConnection] = {}
 CONNECTED_GOPROS: set[WiredConnection] = set()
 KEEP_OPEN = False
 
+
+class LineContinue(enum.StrEnum):
+    CONTINUE = "continue"
+    BREAK = "break"
+
+
 logger = structlog.get_logger()
 
 
-def _setup_history():
+def _setup_history() -> None:
     """Try to enable readline history and persist it in the user's home dir.
+
     Silently ignore failures.
     """
     try:
@@ -46,24 +61,55 @@ def _setup_history():
                 readline.read_history_file(str(histfile))
             except Exception:
                 # ignore history read errors
-                pass
+                logger.warning(
+                    "Failed to read history file; starting with empty history",
+                    file=str(histfile),
+                )
 
             def _save_hist():
                 try:
                     readline.write_history_file(str(histfile))
                 except Exception:
-                    pass
+                    logger.warning(
+                        "Failed to write history file on exit", file=str(histfile)
+                    )
 
             atexit.register(_save_hist)
         except Exception:
-            pass
+            logger.warning(
+                "Failed to set up history file; command history will not be saved"
+            )
     except Exception:
-        pass
+        logger.warning(
+            "Failed to import readline; command history will not be available"
+        )
 
 
-def run_repl(ctx):
-    """Run the interactive REPL. Extracted so it can be reused after a
-    subcommand completes when the user requested to stay interactive.
+def _check_line(line: str, ctx) -> str | None:
+    if not line:
+        return LineContinue.CONTINUE
+
+    if line == "help":
+        click.echo(ctx.get_help())
+        return LineContinue.CONTINUE
+
+    if line in ("exit", "quit"):
+        return LineContinue.BREAK
+
+    # allow running shell-style comments
+    if line.startswith("#"):
+        return LineContinue.CONTINUE
+
+    return None
+
+
+def run_repl(ctx) -> None:
+    """Run the interactive REPL.
+
+    Parameters
+    ----------
+    ctx : click.Context
+        Click context used to provide help text and program name inside the REPL.
     """
     log = logger.bind(command="shell")
     log.debug("Entering interactive shell")
@@ -84,19 +130,10 @@ def run_repl(ctx):
             break
 
         line = (line or "").strip()
-        if not line:
+        if _check_line(line, ctx) == LineContinue.CONTINUE:
             continue
-
-        if line == "help":
-            click.echo(ctx.get_help())
-            continue
-
-        if line in ("exit", "quit"):
+        if _check_line(line, ctx) == LineContinue.BREAK:
             break
-
-        # allow running shell-style comments
-        if line.startswith("#"):
-            continue
 
         try:
             args = shlex.split(line)
@@ -126,7 +163,8 @@ def run_repl(ctx):
     "--interactive",
     "-i",
     is_flag=True,
-    help="After running a command, keep the process open and enter the interactive shell.",
+    help="After running a command, keep the process open and enter the interactive "
+    "shell.",
 )
 @click.version_option(None, "-v", "--version")
 @click.pass_context
@@ -159,7 +197,14 @@ def cli(ctx, interactive):
     default=10,
     help="Time to wait for GoPro devices to be discovered (in seconds).",
 )
-def scan(timeout):
+def scan(timeout: int) -> None:
+    """Discover GoPro devices via USB and mDNS.
+
+    Parameters
+    ----------
+    timeout : int
+        How long to wait for discovery in seconds.
+    """
     asyncio.run(scan_for_gopros(timeout=timeout))
     if KEEP_OPEN:
         run_repl(click.get_current_context())
@@ -181,20 +226,33 @@ def scan(timeout):
     "--serials-file",
     "-f",
     type=click.Path(exists=True),
-    help="Path to a file containing serial numbers of GoPro cameras to connect to, JSON format.",
+    help="Path to a file containing serial numbers of GoPro cameras to connect to, "
+    "JSON format.",
     envvar="PYTERMITE_SERIALS_PATH",
 )
-def connect(auto, serials, serials_file):
+def connect(auto, serials, serials_file) -> None:
+    """Connect to one or more GoPro devices using the selected discovery method.
+
+    Parameters
+    ----------
+    auto : bool
+        When True, automatically discover and connect to all devices.
+    serials : str | None
+        Comma-separated serials provided on the command-line.
+    serials_file : str | None
+        Path to a JSON file containing serials.
+    """
+    global GOPROS
     log = logger.bind(command="connect")
+    serial_numbers: dict[str, str] | set[str] | None = None
     if auto:
         log = log.bind(option="auto")
-        from pytermite.connection import GOPROS as cached_gopros
-        if len(cached_gopros) == 0:
+        if len(GOPROS) == 0:
             log.info("Searching for connected GoPro cameras via USB connection...")
             serial_numbers = asyncio.run(scan_for_gopros(timeout=5))
         else:
             log.info("Using previously discovered GoPro cameras to connect...")
-            serial_numbers = cached_gopros
+            pass
     elif serials:
         log = log.bind(option="serials")
         log.info("Using provided serial numbers to connect to GoPro cameras...")
@@ -202,14 +260,23 @@ def connect(auto, serials, serials_file):
         serial_numbers = set(serials)
     elif serials_file:
         log = log.bind(option="serials_file")
-        log.info("Loading serial numbers from provided file to connect to GoPro cameras...")
+        log.info(
+            "Loading serial numbers from provided file to connect to GoPro cameras..."
+        )
         serial_numbers = load_serial_numbers_from_json(serials_file)
     else:
         raise click.UsageError(
             "Please specify a connection method: --auto, --serials, or --serials-file."
         )
-    log.debug(f"Serial numbers to connect to: {serial_numbers}")
-    global GOPROS
+    if serial_numbers:
+        log.debug(f"Serial numbers to connect to: {serial_numbers}")
+    else:
+        serial_numbers = set()
+        for gp in GOPROS.values():
+            if isinstance(gp, WiredConnection):
+                assert gp.serial is not None
+                serial_numbers.add(gp.serial)
+        log.debug(f"Serial numbers to connect to: {serial_numbers}")
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
     asyncio.run(connect_to_gopros())
     log.info("Connected to all requested GoPro cameras")
@@ -221,13 +288,26 @@ def connect(auto, serials, serials_file):
 
 
 async def connect_to_gopros() -> None:
+    """Connect to all GoPro objects stored in the global GOPROS mapping.
+
+    Yields
+    ------
+    None
+        This function adds connected WiredConnection objects to the global
+        CONNECTED_GOPROS set as a side-effect.
+    """
     global GOPROS, CONNECTED_GOPROS
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
 
 
 @click.command()
-def disconnect():
+def disconnect() -> None:
+    """Disconnect from all connected GoPro cameras.
+
+    This will gracefully close each connection stored in the global GOPROS
+    mapping.
+    """
     log = logger.bind()
     log.info("Disconnecting from all connected GoPro cameras")
     global GOPROS
@@ -238,7 +318,14 @@ def disconnect():
 
 @click.command()
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def record(action):
+def record(action: str) -> None:
+    """Start or stop recording on all currently connected GoPro cameras.
+
+    Parameters
+    ----------
+    action : {"start", "stop"}
+        Whether to start or stop recording.
+    """
     log = logger.bind(command="record")
     global CONNECTED_GOPROS
     try:
@@ -255,7 +342,8 @@ cli.add_command(record)
 cli.add_command(disconnect)
 
 
-def exit_handler():
+def exit_handler() -> None:
+    """Atexit handler to close connections on process exit."""
     log = logger.bind()
     log.info("Exiting pyTermite CLI")
     log.info("Closing all connections")
