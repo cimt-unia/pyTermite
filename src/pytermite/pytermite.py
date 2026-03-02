@@ -40,6 +40,8 @@ KEEP_OPEN = False
 
 
 class LineContinue(enum.StrEnum):
+    """Special return values for _check_line to control REPL flow."""
+
     CONTINUE = "continue"
     BREAK = "break"
 
