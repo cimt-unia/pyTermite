@@ -38,8 +38,8 @@ CONNECTED_GOPROS: set[WiredConnection] = set()
 KEEP_OPEN = False
 
 
-class LineContinue(enum.StrEnum):
-    """Special return values for _check_line to control REPL flow."""
+class _LineContinue(enum.StrEnum):
+    """Special return values for to control REPL flow."""
 
     CONTINUE = "continue"
     BREAK = "break"
@@ -106,24 +106,25 @@ def _check_line(line: str, ctx) -> str | None:
         or None if the line should be processed as a normal command.
     """
     if not line:
-        return LineContinue.CONTINUE
+        return _LineContinue.CONTINUE
 
     if line == "help":
         click.echo(ctx.get_help())
-        return LineContinue.CONTINUE
+        return _LineContinue.CONTINUE
 
     if line in ("exit", "quit"):
-        return LineContinue.BREAK
+        return _LineContinue.BREAK
 
     # allow running shell-style comments
     if line.startswith("#"):
-        return LineContinue.CONTINUE
+        return _LineContinue.CONTINUE
 
     return None
 
 
-def run_repl(ctx) -> None:
-    """Run the interactive REPL.
+def _run_repl(ctx) -> None:
+    """
+    Run the interactive REPL.
 
     Parameters
     ----------
@@ -149,9 +150,9 @@ def run_repl(ctx) -> None:
             break
 
         line = (line or "").strip()
-        if _check_line(line, ctx) == LineContinue.CONTINUE:
+        if _check_line(line, ctx) == _LineContinue.CONTINUE:
             continue
-        if _check_line(line, ctx) == LineContinue.BREAK:
+        if _check_line(line, ctx) == _LineContinue.BREAK:
             break
 
         try:
@@ -214,7 +215,7 @@ def cli(ctx, interactive):
         return
 
     # No subcommand: start the interactive REPL.
-    run_repl(ctx)
+    _run_repl(ctx)
 
 
 @click.command()
@@ -236,7 +237,7 @@ def scan(timeout: int) -> None:
     """
     asyncio.run(scan_for_gopros(timeout=timeout))
     if KEEP_OPEN:
-        run_repl(click.get_current_context())
+        _run_repl(click.get_current_context())
 
 
 @click.command()
@@ -308,17 +309,18 @@ def connect(auto, serials, serials_file) -> None:
                 serial_numbers.add(gp.serial)
         log.debug(f"Serial numbers to connect to: {serial_numbers}")
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
-    asyncio.run(connect_to_gopros())
+    asyncio.run(_connect_to_gopros())
     log.info("Connected to all requested GoPro cameras")
     # When running inside the interactive shell the process will stay alive
     # and the user can call `disconnect` from the same shell. If invoked
     # directly from a single-shot process the CLI will exit as before.
     if KEEP_OPEN:
-        run_repl(click.get_current_context())
+        _run_repl(click.get_current_context())
 
 
-async def connect_to_gopros() -> None:
-    """Connect to all GoPro objects stored in the global GOPROS mapping.
+async def _connect_to_gopros() -> None:
+    """
+    Connect to all GoPro objects stored in the global ``GOPROS`` mapping.
 
     Yields
     ------
@@ -344,7 +346,7 @@ def disconnect() -> None:
     global GOPROS
     asyncio.run(close_gopros(gopros=GOPROS))
     if KEEP_OPEN:
-        run_repl(click.get_current_context())
+        _run_repl(click.get_current_context())
 
 
 @click.command()
@@ -365,7 +367,7 @@ def record(action: str) -> None:
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
-        run_repl(click.get_current_context())
+        _run_repl(click.get_current_context())
 
 
 cli.add_command(scan)
@@ -374,8 +376,10 @@ cli.add_command(record)
 cli.add_command(disconnect)
 
 
-def exit_handler() -> None:
-    """Atexit handler to close connections on process exit."""
+def _exit_handler() -> None:
+    """
+    Atexit handler to close connections on process exit.
+    """  # noqa: D200
     log = logger.bind()
     log.info("Exiting pyTermite CLI")
     log.info("Closing all connections")
@@ -383,4 +387,4 @@ def exit_handler() -> None:
     asyncio.run(close_gopros(gopros=GOPROS))
 
 
-atexit.register(exit_handler)
+atexit.register(_exit_handler)
