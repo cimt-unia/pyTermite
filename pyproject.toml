@@ -148,6 +148,7 @@ exclude = [
     "build",
     "dist",
     "tests",
+    "docs",
 ]
 files = "src/pytermite"
 strict = false
