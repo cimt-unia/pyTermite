@@ -38,6 +38,11 @@ dev = [
     "twine",
     "ruff",
     "mypy",
+    "pytest",
+    "pytest-mock",
+    "pytest-cov",
+    "pytest-sugar",
+    "pytest-random-order",
 ]
 
 [project.urls]
@@ -95,6 +100,9 @@ ignore = [
     "W191",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG001", "ARG002", "D"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
@@ -126,6 +134,7 @@ exclude_files = [ # don't process filepaths that match these regex
 exclude = [
     "build",
     "dist",
+    "tests",
 ]
 files = "src/pytermite"
 strict = false
@@ -133,3 +142,12 @@ pretty = true
 disable_error_code = ["import-not-found", "import-untyped"]
 check_untyped_defs = true
 follow_untyped_imports = true
+
+
+######################################################################
+# PyTest
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+addopts = "--cov --cov-append --cov-report=term-missing --cov-report=xml --import-mode=importlib --random-order"
