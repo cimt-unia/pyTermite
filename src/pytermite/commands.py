@@ -13,7 +13,6 @@ retrieve camera information, status and control (start/stop recording).
 #  SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
-from typing import Coroutine
 
 import aiohttp
 import requests
@@ -27,7 +26,7 @@ logger = structlog.get_logger()
 
 async def get_camera_info(
     connected_gopros: set[WiredConnection],
-) -> dict[Coroutine, dict]:
+) -> dict[str, dict]:
     """
     Fetch camera information from connected GoPro devices.
 
@@ -50,7 +49,7 @@ async def get_camera_info(
 
 async def get_camera_status(
     connected_gopros: set[WiredConnection],
-) -> dict[Coroutine, dict]:
+) -> dict[str, dict]:
     """
     Fetch the runtime state for each connected GoPro.
 
@@ -73,7 +72,7 @@ async def get_camera_status(
 
 async def get_preset_status(
     connected_gopros: set[WiredConnection],
-) -> dict[Coroutine, dict]:
+) -> dict[str, dict]:
     """
     Retrieve preset configuration for each connected GoPro.
 
