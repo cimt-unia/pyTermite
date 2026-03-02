@@ -1,0 +1,11 @@
+[run]
+source = src/pytermite
+omit = ".venv/*", "docs/*", "branding/*", "build/*", "dist/*", "tests/*", ".tox/*"
+branch = true
+
+[report]
+show_missing = true
+skip_covered = true
+exclude_lines =
+    pragma: no cover
+    if __name__ == "__main__":
