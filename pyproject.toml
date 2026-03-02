@@ -48,6 +48,7 @@ dev = [
     "sphinx-copybutton",
     "numpydoc",
     "pydata-sphinx-theme",
+    "tox",
 ]
 
 [project.urls]
