@@ -55,10 +55,9 @@ class WiredConnection(WiredGoPro):
     """
 
     def __init__(self, **kwargs):
-        # accept optional 'name' kwarg for compatibility but do not use it
-        kwargs.pop("name", None)
+        name = kwargs.pop("name", None)
         super().__init__(**kwargs)
-        self._name: str | None = None
+        self._name: str | None = name
         self.serial = self._serial
 
     @property
