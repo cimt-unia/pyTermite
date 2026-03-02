@@ -49,6 +49,7 @@ dev = [
     "numpydoc",
     "pydata-sphinx-theme",
     "tox",
+    "pre-commit",
 ]
 
 [project.urls]

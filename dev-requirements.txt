@@ -13,3 +13,4 @@ sphinx-copybutton
 numpydoc
 pydata-sphinx-theme
 tox
+pre-commit
