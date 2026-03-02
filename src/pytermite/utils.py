@@ -1,6 +1,6 @@
 """Utility helpers used across the pytermite package.
 
-Short summary
+Short Summary
 -------------
 Small convenience functions for loading serial mappings, serial -> URL
 conversion, simple dict utilities and serializing complex objects to plain

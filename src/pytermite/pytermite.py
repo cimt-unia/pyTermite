@@ -1,6 +1,6 @@
 """pyTermite command line interface and REPL utilities.
 
-Short summary
+Short Summary
 -------------
 Provides a Click-based CLI for discovering, connecting to and controlling
 multiple GoPro devices. Includes an interactive REPL for repeated commands.
@@ -169,7 +169,7 @@ def run_repl(ctx) -> None:
 @click.version_option(None, "-v", "--version")
 @click.pass_context
 def cli(ctx, interactive):
-    """pyTermite CLI - Control multiple GoPro cameras via USB connection.
+    """PyTermite CLI - Control multiple GoPro cameras via USB connection.
 
     When invoked without a subcommand this CLI will enter an interactive REPL
     allowing multiple commands to be executed without exiting the process.

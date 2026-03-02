@@ -1,6 +1,6 @@
 """Connection helpers for discovering and managing wired GoPro devices.
 
-Short summary
+Short Summary
 -------------
 Utilities to create connection objects for GoPro devices, scan for devices over
 USB/mdns, and manage open/close life-cycle of WiredConnection objects.
@@ -169,7 +169,7 @@ async def wait_for_user_interrupt() -> None:
 
         Read and discard the line, set the global interrupt flag and the
         event so the coroutine can continue.
-        """
+        """  # noqa: D401
         try:
             # consume the input line so the next read is fresh
             # use os.read on the fd to avoid potential blocking text IO

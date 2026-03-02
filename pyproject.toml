@@ -54,10 +54,12 @@ pytermite = "pytermite.pytermite:cli"
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+
 ######################################################################
 # Setuptools
 [tool.setuptools.dynamic]
 version = {attr = "pytermite.__version__"}
+
 
 ######################################################################
 # Ruff
@@ -73,6 +75,7 @@ select = [
     "C4",
     "C90",
     "CPY",
+    "D",
     "E",
     "F",
     "I",
@@ -87,6 +90,8 @@ ignore = [
     "E111",
     "E114",
     "E117",
+    "D206",
+    "D300",
     "W191",
 ]
 
@@ -95,6 +100,24 @@ convention = "numpy"
 
 [tool.ruff.lint.isort]
 known-first-party = ["src/pytermite"]
+
+
+######################################################################
+# Numpydoc
+[tool.numpydoc_validation]
+checks = [
+    "all",   # report on all checks, except the below
+    "EX01",
+    "SA01",
+    "ES01",
+]
+exclude = [  # don't report on objects that match any of these regex
+    '\.__repr__$',
+]
+exclude_files = [ # don't process filepaths that match these regex
+    '^tests/.*',
+    '^docs/.*',
+]
 
 
 ######################################################################
