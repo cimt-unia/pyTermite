@@ -43,6 +43,11 @@ dev = [
     "pytest-cov",
     "pytest-sugar",
     "pytest-random-order",
+    "sphinx",
+    "sphinxcontrib-email",
+    "sphinx-copybutton",
+    "numpydoc",
+    "pydata-sphinx-theme",
 ]
 
 [project.urls]
@@ -120,6 +125,7 @@ checks = [
     "ES01",
 ]
 exclude = [  # don't report on objects that match any of these regex
+    '\.__init__$',
     '\.__repr__$',
 ]
 exclude_files = [ # don't process filepaths that match these regex

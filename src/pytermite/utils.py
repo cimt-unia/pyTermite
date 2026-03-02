@@ -1,7 +1,6 @@
-"""Utility helpers used across the pytermite package.
+"""
+Utility helpers used across the pytermite package.
 
-Short Summary
--------------
 Small convenience functions for loading serial mappings, serial -> URL
 conversion, simple dict utilities and serializing complex objects to plain
 Python data types suitable for JSON output.
@@ -22,7 +21,8 @@ from typing import Any
 
 
 def load_serial_numbers_from_json(filepath: pathlib.Path | str) -> dict[str, str]:
-    """Load a JSON file containing a mapping of camera names to serial numbers.
+    """
+    Load a JSON file containing a mapping of camera names to serial numbers.
 
     Parameters
     ----------
@@ -40,7 +40,8 @@ def load_serial_numbers_from_json(filepath: pathlib.Path | str) -> dict[str, str
 
 
 def create_base_url(serial_number: str) -> str:
-    """Create the camera REST base URL from a serial number.
+    """
+    Create the camera REST base URL from a serial number.
 
     Parameters
     ----------
@@ -59,7 +60,8 @@ def create_base_url(serial_number: str) -> str:
 
 
 def reverse_dict(d: dict) -> dict:
-    """Return a dict with keys and values swapped.
+    """
+    Return a dict with keys and values swapped.
 
     Parameters
     ----------
@@ -75,7 +77,8 @@ def reverse_dict(d: dict) -> dict:
 
 
 def serialize_dict(d: dict) -> dict:
-    """Serialize complex objects in a dict to JSON-friendly Python types.
+    """
+    Serialize complex objects in a dict to JSON-friendly Python types.
 
     Parameters
     ----------
@@ -103,7 +106,8 @@ def serialize_dict(d: dict) -> dict:
 
 
 def write_json_to_file(data: dict, filepath: pathlib.Path | str) -> None:
-    """Write a mapping to a file as pretty-printed JSON, creating parents.
+    """
+    Write a mapping to a file as pretty-printed JSON, creating parents.
 
     Parameters
     ----------

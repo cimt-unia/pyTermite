@@ -1,7 +1,6 @@
-"""pyTermite command line interface and REPL utilities.
+"""
+`pyTermite` command line interface and REPL utilities.
 
-Short Summary
--------------
 Provides a Click-based CLI for discovering, connecting to and controlling
 multiple GoPro devices. Includes an interactive REPL for repeated commands.
 """
@@ -50,7 +49,8 @@ logger = structlog.get_logger()
 
 
 def _setup_history() -> None:
-    """Try to enable readline history and persist it in the user's home dir.
+    """
+    Try to enable readline history and persist it in the user's home dir.
 
     Silently ignore failures.
     """
@@ -88,6 +88,23 @@ def _setup_history() -> None:
 
 
 def _check_line(line: str, ctx) -> str | None:
+    """
+    Check if the input line is a special command that should be handled directly.
+
+    Parameters
+    ----------
+    line : str
+        The input line to check.
+    ctx : click.Context
+        Click context used to provide help text inside the REPL.
+
+    Returns
+    -------
+    str | None
+        LineContinue.CONTINUE if the line was handled and the REPL should continue,
+        LineContinue.BREAK if the line was handled and the REPL should exit,
+        or None if the line should be processed as a normal command.
+    """
     if not line:
         return LineContinue.CONTINUE
 
@@ -171,12 +188,21 @@ def run_repl(ctx) -> None:
 @click.version_option(None, "-v", "--version")
 @click.pass_context
 def cli(ctx, interactive):
-    """PyTermite CLI - Control multiple GoPro cameras via USB connection.
+    """
+    `pyTermite` CLI - Control multiple GoPro cameras via USB connection.
 
     When invoked without a subcommand this CLI will enter an interactive REPL
     allowing multiple commands to be executed without exiting the process.
     If started with --interactive the CLI will stay open after running a
     subcommand and drop into the interactive REPL.
+
+    Parameters
+    ----------
+    ctx : click.Context
+        Click context used to provide help text and program name inside the REPL.
+    interactive : bool
+        Whether to keep the process open and enter the interactive shell after
+        running a command.
     """
     # Store the interactive preference globally so individual commands can
     # decide whether to drop into the REPL after finishing.
@@ -200,7 +226,8 @@ def cli(ctx, interactive):
     help="Time to wait for GoPro devices to be discovered (in seconds).",
 )
 def scan(timeout: int) -> None:
-    """Discover GoPro devices via USB and mDNS.
+    """
+    Discover GoPro devices via USB and mDNS.
 
     Parameters
     ----------
@@ -233,7 +260,8 @@ def scan(timeout: int) -> None:
     envvar="PYTERMITE_SERIALS_PATH",
 )
 def connect(auto, serials, serials_file) -> None:
-    """Connect to one or more GoPro devices using the selected discovery method.
+    """
+    Connect to one or more GoPro devices using the selected discovery method.
 
     Parameters
     ----------
@@ -296,7 +324,7 @@ async def connect_to_gopros() -> None:
     ------
     None
         This function adds connected WiredConnection objects to the global
-        CONNECTED_GOPROS set as a side-effect.
+        ``CONNECTED_GOPROS`` set as a side-effect.
     """
     global GOPROS, CONNECTED_GOPROS
     async for gopro in connect_gopros(gopros=GOPROS):
@@ -305,9 +333,10 @@ async def connect_to_gopros() -> None:
 
 @click.command()
 def disconnect() -> None:
-    """Disconnect from all connected GoPro cameras.
+    """
+    Disconnect from all connected GoPro cameras.
 
-    This will gracefully close each connection stored in the global GOPROS
+    This will gracefully close each connection stored in the global ``GOPROS``
     mapping.
     """
     log = logger.bind()
@@ -321,7 +350,8 @@ def disconnect() -> None:
 @click.command()
 @click.argument("action", type=click.Choice(["start", "stop"]))
 def record(action: str) -> None:
-    """Start or stop recording on all currently connected GoPro cameras.
+    """
+    Start or stop recording on all currently connected GoPro cameras.
 
     Parameters
     ----------

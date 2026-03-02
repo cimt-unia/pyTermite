@@ -1,20 +1,8 @@
-"""High-level commands used by the pytermite CLI.
+"""
+High-level commands used by the pytermite CLI.
 
-Short Summary
--------------
 Convenience helpers that operate on sets of connected WiredConnection objects to
 retrieve camera information, status and control (start/stop recording).
-
-Functions
----------
-get_camera_info
-    Retrieve camera information from each connected GoPro.
-get_camera_status
-    Retrieve camera state from each connected GoPro.
-get_preset_status
-    Retrieve preset configuration from each connected GoPro.
-camera_shutter
-    Start or stop recording on all connected GoPro cameras.
 """
 
 #  Copyright (c) 2026 by Lukas Behammer
@@ -89,12 +77,6 @@ async def get_preset_status(
     """
     Retrieve preset configuration for each connected GoPro.
 
-    Notes
-    -----
-    The OpenGoPro library's preset status retrieval is currently not working as
-    expected; this function performs a manual HTTP GET request against the
-    camera's REST endpoint as a workaround.
-
     Parameters
     ----------
     connected_gopros : set[WiredConnection]
@@ -104,6 +86,12 @@ async def get_preset_status(
     -------
     dict[str, dict]
         Mapping from camera name to a serializable dictionary describing presets.
+
+    Notes
+    -----
+    The OpenGoPro library's preset status retrieval is currently not working as
+    expected; this function performs a manual HTTP GET request against the
+    camera's REST endpoint as a workaround.
     """
     preset_state = {}
     for connection in connected_gopros:

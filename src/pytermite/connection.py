@@ -1,7 +1,6 @@
-"""Connection helpers for discovering and managing wired GoPro devices.
+"""
+Connection helpers for discovering and managing wired GoPro devices.
 
-Short Summary
--------------
 Utilities to create connection objects for GoPro devices, scan for devices over
 USB/mdns, and manage open/close life-cycle of WiredConnection objects.
 """
@@ -41,12 +40,18 @@ SERIALS = (
 
 
 class WiredConnection(WiredGoPro):
-    """Subclass of WiredGoPro providing a cached human-readable name.
+    """
+    Subclass of ``WiredGoPro`` providing a cached human-readable name.
 
-    Attributes
+    Parameters
     ----------
-    _name : str | None
-        Cached camera name (may be populated on first access).
+    **kwargs
+        All keyword arguments are passed to the ``WiredGoPro`` constructor.
+        The `name` keyword is reserved for an optional cached camera name that can be
+        provided on initialization.
+        If not provided, the name will be lazily loaded on first access by querying the
+        camera's information via the HTTP API and falling back to a name derived from
+        the serial numbers mapping.
     """
 
     def __init__(self, **kwargs):
@@ -83,7 +88,7 @@ def create_wired_gopros(
     gopro_serials: dict[str, str] | set[str],
 ) -> dict[str, WiredConnection]:
     """
-    Create WiredConnection objects for provided serial numbers.
+    Create :py:class:`~WiredConnection` objects for provided serial numbers.
 
     Parameters
     ----------
@@ -93,8 +98,8 @@ def create_wired_gopros(
     Returns
     -------
     dict[str, WiredConnection]
-        Mapping from provided key (camera name or serial) to a WiredConnection
-        instance.
+        Mapping from provided key (camera name or serial) to a
+        :py:class:`~WiredConnection` instance.
     """
     gopros = {}
     if isinstance(gopro_serials, dict):
@@ -108,19 +113,19 @@ def create_wired_gopros(
 
 async def connect_gopros(gopros: dict[str, WiredConnection]):
     """
-    Attempt to open a connection to each provided WiredConnection.
+    Attempt to open a connection to each provided :py:class:`~WiredConnection`.
 
-    This is an async generator that yields each connected WiredConnection.
+    This is an async generator that yields each connected :py:class:`~WiredConnection`.
 
     Parameters
     ----------
     gopros : dict[str, WiredConnection]
-        Mapping of camera keys to WiredConnection objects to connect.
+        Mapping of camera keys to :py:class:`~WiredConnection` objects to connect.
 
     Yields
     ------
     WiredConnection
-        Each successfully connected WiredConnection object.
+        Each successfully connected :py:class:`~WiredConnection` object.
     """
     for cam_name, gopro in gopros.items():
         try:
@@ -136,12 +141,12 @@ async def connect_gopros(gopros: dict[str, WiredConnection]):
 
 async def close_gopros(gopros: dict[str, WiredConnection]) -> None:
     """
-    Close all provided WiredConnection objects.
+    Close all provided :py:class:`~WiredConnection` objects.
 
     Parameters
     ----------
     gopros : dict[str, WiredConnection]
-        Mapping of camera keys to WiredConnection objects to close.
+        Mapping of camera keys to :py:class:`~WiredConnection` objects to close.
     """
     for _, gopro in gopros.items():
         await gopro.close()
@@ -154,7 +159,7 @@ async def wait_for_user_interrupt() -> None:
 
     Notes
     -----
-    Uses the event loop's add_reader API so the waiter can be cancelled
+    Uses the event loop's ``add_reader`` API so the waiter can be cancelled
     immediately (the reader is removed in the finally block). This avoids the
     problem where awaiting a blocking input call prevents task cancellation.
     """
@@ -165,7 +170,8 @@ async def wait_for_user_interrupt() -> None:
     event = asyncio.Event()
 
     def _on_input() -> None:
-        """Callback run when stdin is readable (user pressed Enter).
+        """
+        Callback run when stdin is readable (user pressed Enter).
 
         Read and discard the line, set the global interrupt flag and the
         event so the coroutine can continue.
