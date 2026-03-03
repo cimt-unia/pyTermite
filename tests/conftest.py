@@ -52,19 +52,19 @@ class DummyWiredConnection:
         self.open_called = False
         self.closed = False
 
+    @property
+    async def name(self):
+        if self._name:
+            return self._name
+        # Try to asynchronously fall back to identifier if no cached name
+        await asyncio.sleep(0)  # Simulate async retrieval delay
+        return self.identifier
+
     async def open(self, retries=1, timeout=1):
         self.open_called = True
 
     async def close(self):
         self.closed = True
-
-    @property
-    def name(self):
-        # Provide a synchronous `.name` so tests that don't await it still work
-        if self._name:
-            return self._name
-        # Try to synchronously fall back to identifier if no cached name
-        return self.identifier
 
 
 @pytest.fixture
