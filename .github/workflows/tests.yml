@@ -1,0 +1,39 @@
+---
+defaults:
+  run:
+    shell: bash
+
+name: tests
+run-name: Run tests
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test Run (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@v7
+      - run: uv tool install tox --with tox-uv --with tox-gh-actions
+      - run: tox
+      # You only need to upload code coverage once to codecov unless you have a
+      # more complex build that you need coverage for.
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.os == 'ubuntu-latest' &&  matrix.python-version == '3.12'}}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
