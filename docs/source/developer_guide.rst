@@ -1,4 +1,4 @@
-Developer guide
+Developer Guide
 ================
 
 This developer guide explains how to set up a development environment, run
