@@ -180,4 +180,4 @@ follow_untyped_imports = true
 testpaths = [
     "tests",
 ]
-addopts = "--cov --cov-append --cov-report=term-missing --cov-report=xml --import-mode=importlib --random-order"
+addopts = "--cov --cov-branch --cov-append --cov-report=term-missing --cov-report=xml --import-mode=importlib --random-order"
