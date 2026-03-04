@@ -1,0 +1,22 @@
+---
+coverage:
+  status:
+    project: false
+    patch: false
+
+flag_management:
+  individual_flags:
+    - name: api
+      paths:
+        - src/pytermite/
+      statuses:
+        - type: project
+          target: 100%
+          threshold: 1%
+    - name: cli
+      paths:
+        - src/pytermite/pytermite.py
+      statuses:
+        - type: project
+          target: auto
+          threshold: 1%
