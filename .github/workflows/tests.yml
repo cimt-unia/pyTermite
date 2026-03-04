@@ -8,7 +8,23 @@ run-name: Run tests
 
 on:
   push:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/tests.yml"
+      - ".codecov.yml"
+      - ".coveragerc"
+      - "tox.ini"
+      - "pyproject.toml"
   pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/tests.yml"
+      - ".codecov.yml"
+      - ".coveragerc"
+      - "tox.ini"
+      - "pyproject.toml"
   workflow_call:
   workflow_dispatch:
 
