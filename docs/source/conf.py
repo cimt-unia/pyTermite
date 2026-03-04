@@ -37,7 +37,6 @@ extensions = [
     "sphinx_copybutton",
 ]
 
-templates_path = ['_templates']
 exclude_patterns = []
 
 
@@ -45,7 +44,6 @@ exclude_patterns = []
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'pydata_sphinx_theme'
-html_static_path = ['_static']
 html_favicon = '../../branding/logo.png'
 html_title = f"{project} v{release}"
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
