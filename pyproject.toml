@@ -32,26 +32,6 @@ dependencies = [
     "click",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "build",
-    "twine",
-    "ruff",
-    "mypy",
-    "pytest",
-    "pytest-mock",
-    "pytest-cov",
-    "pytest-sugar",
-    "pytest-random-order",
-    "sphinx",
-    "sphinxcontrib-email",
-    "sphinx-copybutton",
-    "numpydoc",
-    "pydata-sphinx-theme",
-    "tox",
-    "pre-commit",
-]
-
 [project.urls]
 #Repository
 #Homepage
@@ -65,6 +45,42 @@ pytermite = "pytermite.pytermite:cli"
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+test = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-mock",
+    "pytest-cov",
+    "pytest-sugar",
+    "pytest-random-order",
+]
+docs = [
+    "sphinx",
+    "sphinx-autobuild",
+    "sphinxcontrib-email",
+    "sphinx-copybutton",
+    "numpydoc",
+    "pydata-sphinx-theme",
+]
+typing = [
+    "mypy",
+    "types-requests",
+]
+lint = [
+    "ruff",
+    "numpydoc",
+]
+release = [
+    "build",
+    "setuptools",
+    "twine",
+]
+misc = [
+    "pre-commit",
+    "tox",
+]
+all = [{include-group = "test"}, {include-group = "docs"}, {include-group = "typing"}, {include-group = "lint"}, {include-group = "release"}, {include-group = "misc"}]
 
 
 ######################################################################
