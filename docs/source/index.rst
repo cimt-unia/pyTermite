@@ -6,16 +6,24 @@
 pyTermite Documentation
 =======================
 
-A small toolkit to discover, connect and control multiple GoPro cameras via
-USB and mDNS. The documentation contains a quickstart and a generated API
-reference for the main modules.
+.. image:: ../../branding/logo.png
+   :alt: pyTermite Logo
+   :align: center
+   :width: 40%
 
-Contents
---------
+|
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+   :hidden:
 
    quickstart
    api_reference
    developer_guide
+
+
+
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- SPHINX-START-HERE -->

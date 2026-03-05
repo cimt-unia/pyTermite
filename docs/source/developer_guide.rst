@@ -21,58 +21,90 @@ Quick setup (recommended)
 -------------------------
 Create and activate a virtual environment, then install dev dependencies:
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r dev-requirements.txt
-```
+.. code-block:: bash
 
-If you prefer to use poetry or pipx, adapt the commands above accordingly.
+    python -m venv .venv
+    source .venv/bin/activate
+    python -m pip install --upgrade pip
+    python -m pip install -e . --group dev
+
 
 Running the demo
 ----------------
-The demo script demonstrates the common workflow. Ensure any hardware is
-connected and the serials file is configured under ``./config/serials.json``.
+The demo script demonstrates the functionality of the API. Ensure any hardware is
+connected and the serials file is configured under ``./config/serials.json`` next to the ``demo.py`` script.
 
-```bash
-python demo.py
-```
+.. code-block:: bash
+
+    python demo.py
+
 
 Running tests
 -------------
-Run the full pytest suite from the project root. The `dev-requirements.txt`
-includes testing dependencies such as ``pytest`` and ``pytest-asyncio``.
+Run the full test suite possibly with coverage reports from the project root via pre-configured tox:
 
-```bash
-pytest -q
-```
+.. code-block:: bash
 
-To run a single test file or test function, use pytest filtering:
+    tox r -m test [coverage]
 
-```bash
-pytest tests/test_utils.py::test_serialize_fallback_object -q
-```
+
+To run a single test file or test function, use pytest with filtering:
+
+.. code-block:: bash
+
+    pytest tests/test_utils.py::test_serialize_fallback_object -q
+
+
+Pre-commit hooks
+-----------------
+The project uses pre-commit hooks to enforce code quality and consistency. To set up the hooks
+locally, run:
+
+.. code-block:: bash
+
+    pre-commit install
+    pre-commit install-hooks
+
+You can manually run the hooks on all files with:
+
+.. code-block:: bash
+
+    pre-commit run --all-files
+
+or via tox:
+
+.. code-block:: bash
+
+    tox r -m pre-commit
+
 
 Linting and formatting
 ----------------------
-This project includes a ``tox.ini`` and formatted code style recommendations.
-You can run linters and formatters as configured in the ``pyproject.toml``. For example, to run ruff locally without tox:
+You can run linters and formatters as configured in the ``pyproject.toml``.
+For example, to run ruff locally without tox:
 
-```bash
-ruff format src
-ruff check src
-```
+.. code-block:: bash
+
+    ruff format .
+    ruff check .
+
 
 Type checking
 -------------
-The project ships type hints and ``py.typed``. Use mypy for static type
+The project ships type hints and a ``py.typed`` file. Use mypy for static type
 checking (install it into your dev environment):
 
-```bash
-python -m pip install mypy
-mypy src
-```
+.. code-block:: bash
+
+    mypy .
+
+
+You can combine type checking with linting and formatting in a single tox run:
+
+.. code-block:: bash
+
+    tox r -m lint
+
 
 Adding tests
 ------------
@@ -86,23 +118,28 @@ Example test structure:
 - ``tests/test_commands.py`` — mock HTTP and aiohttp to test command logic.
 - ``tests/test_connection.py`` — async connection flows; use pytest-asyncio.
 
+
 Writing documentation
 ---------------------
 The project uses Sphinx with the ``numpydoc`` extension. Source files live
 under ``docs/source``. To build the documentation locally:
 
-```bash
-python -m pip install -r dev-requirements.txt
-cd docs
-make html
-# Open docs/build/html/index.html in a browser
-```
+.. code-block:: bash
 
-When documenting code prefer numpydoc style for docstrings.
+    sphinx-build -b html docs/source docs/build/html
+
+or:
+
+.. code-block:: bash
+
+    sphinx-autobuild docs/source docs/build/html
+
+When documenting code use numpydoc style for docstrings.
+
 
 Contributing
 ------------
-Follow the project's `CONTRIBUTING.md` guidelines. Typical steps for a
+Follow the project's ``CONTRIBUTING.md`` guidelines. Typical steps for a
 feature or bugfix:
 
 1. Fork the repository and create a feature branch.
@@ -128,27 +165,32 @@ Common types include ``feat``, ``fix``, ``docs``, ``style``, ``refactor``,
     docs: update developer guide with testing instructions
 
 Using this convention makes it easier to generate changelogs and to review
-history. Consider adding a commit message linting hook or CI check (for
-example: `commitlint`) if you want to enforce messages automatically.
+history.
 
-Release process (suggested)
----------------------------
+
+Release process
+---------------
+Releases are automatically built and published to PyPI via GitHub Actions when a new tag is pushed to the ``main`` branch.
+To create a new release:
+
 - Bump the version in ``src/pytermite/__init__.py`` under ``__version__``.
 - Tag the release in git and create a GitHub release.
+
 
 Architecture notes
 ------------------
 - ``pytermite.utils``: small, pure helper functions (JSON I/O, serialization,
   URL creation). These are easy to unit test.
 - ``pytermite.connection``: discovery and lifecycle management of
-  `WiredConnection` objects. This module contains async flows and interacts
-  with external network discovery helpers (mDNS) and the `open_gopro` library.
+  ``WiredConnection`` objects. This module contains async flows and interacts
+  with external network discovery helpers (mDNS) and the ``open_gopro`` library.
 - ``pytermite.commands``: high-level orchestration commands that operate on
   connected devices (get info, get state, control shutter). These functions
   are central to CLI behavior and are designed to be reused from other
   programs.
 - ``pytermite.pytermite``: CLI layer exposing commands via Click and an
   interactive REPL.
+
 
 Debugging tips
 --------------

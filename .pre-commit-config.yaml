@@ -59,6 +59,7 @@ repos:
       - id: rstcheck
         additional_dependencies:
           - sphinx>=1.8.1
+          - myst-parser
 
   - repo: https://github.com/numpy/numpydoc
     rev: v1.10.0

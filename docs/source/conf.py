@@ -33,8 +33,8 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "numpydoc",
-    "sphinxcontrib.email",
     "sphinx_copybutton",
+    "myst_parser",
 ]
 
 exclude_patterns = []
@@ -51,16 +51,38 @@ html_logo = "../../branding/logo.png"
 html_theme_options = {
     "icon_links": [
         {
-            # Label for this link
             "name": "GitHub",
-            # URL where the link will redirect
-            "url": "https://github.com/cimt-unia/pyTermite",  # required
-            # Icon class (if "type": "fontawesome"), or path to local image (if "type": "local")
-            "icon": "fa-brands fa-square-github",
-            # The type of image to be used (see below for details)
+            "url": "https://github.com/cimt-unia/pyTermite",
+            "icon": "fa-brands fa-github",
             "type": "fontawesome",
         }
-   ]
+    ],
+    "icon_links_label": "Quick Links",
+    "use_edit_page_button": True,
+    "secondary_sidebar_items": [
+        "page-toc",
+        "edit-this-page",
+        "sourcelink",
+        "sidebar-ethical-ads.html"
+    ],
+    "show_prev_next": False,
+    "footer_start": ["copyright"],
+    "footer_center": ["sphinx-version"],
+    "footer_end": ["theme-version"],
+    "logo": {
+        "text": f"{project} v{release}",
+        "image_light": "../../branding/logo.png",
+    },
+}
+html_context = {
+    "github_user": "cimt-unia",
+    "github_repo": "pyTermite",
+    "github_version": "main",
+    "doc_path": "docs/source",
+}
+html_sidebars = {
+    "quickstart": [],
+    "developer_guide": [],
 }
 
 

@@ -58,10 +58,10 @@ test = [
 docs = [
     "sphinx",
     "sphinx-autobuild",
-    "sphinxcontrib-email",
     "sphinx-copybutton",
     "numpydoc",
-    "pydata-sphinx-theme",
+    "pydata-sphinx-theme<0.16.1",
+    "myst_parser",
 ]
 typing = [
     "mypy",

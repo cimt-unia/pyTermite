@@ -19,14 +19,15 @@ You want to contribute code to pyTermite? Great! Here is some information to get
 1. Have a look at the open issues to see if there is something you would like to work on.
 2. Fork the repository and create a new branch for your feature or bug fix.
 3. Write your code and tests.
-4. Make sure that all tests pass by running `pytest`.
-5. Create a pull request to the `dev` branch of the repository.
-6. We will review your pull request and provide feedback.
-7. Once your pull request is approved, we will merge it into the `dev` branch.
-8. The changes on `dev` will be tested and merged into the `main` branch.
-9. Your contribution will be part of the next release of pyTermite!
+4. Make sure that all tests pass by running `pytest` or the setup tox environments via `tox r -m test`.
+5. Please make sure to run the linting via pre-commit hooks or `tox r -m lint` before submitting your pull request.
+6. Create a pull request to the `dev` branch of the repository.
+7. We will review your pull request and provide feedback.
+8. Once your pull request is approved, we will merge it into the `dev` branch.
+9. The changes on `dev` will be tested and merged into the `main` branch.
+10. Your contribution will be part of the next release of pyTermite!
 
-For more information on the development see the generated developer guide in the docs (e.g. `docs/build/html/developer_guide.html`).
+For more information on the development see the [developer guide](https://pytermite.readthedocs.io/en/latest/developer_guide.html) in the docs.
 
 ## Want to improve the documentation or examples?
 
@@ -58,8 +59,7 @@ Examples::
     docs: update developer guide with testing instructions
 
 Using this convention makes it easier to generate changelogs and to review
-history. If you want to automate linting of commit messages consider adding
-an appropriate git hook or CI check (e.g., `commitlint`).
+history.
 
 ## Other questions?
 

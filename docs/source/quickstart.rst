@@ -9,9 +9,11 @@ Prerequisites
 - Python 3.12+ (project was developed with Python 3.12)
 - A working virtual environment with project dependencies installed:
 
-  python -m venv .venv
-  source .venv/bin/activate
-  python -m pip install -r requirements.txt
+.. code-block:: bash
+
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install pyTermite
 
 Running the demo
 ----------------
@@ -20,7 +22,13 @@ workflow for discovering and collecting information from GoPro devices.
 
 From the project root run::
 
+.. code-block:: bash
+
     python demo.py
+
+Make sure to have any hardware connected and the serials file configured under
+``./config/serials.json`` next to the ``demo.py`` script.
+
 
 Notes
 -----
@@ -28,14 +36,3 @@ Notes
 - The demo performs real network and hardware I/O; for tests and CI you
   should mock those parts or run the demo on a machine with attached GoPro
   devices.
-
-Building the documentation locally
-----------------------------------
-If you want to preview the Sphinx documentation locally, install Sphinx and
-build the HTML output::
-
-    python -m pip install -r dev-requirements.txt
-    cd docs
-    make html
-
-The generated HTML will be available under ``docs/build/html/``.
