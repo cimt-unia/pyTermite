@@ -71,16 +71,27 @@ lint = [
     "ruff",
     "numpydoc",
 ]
-release = [
+build =  [
     "build",
     "setuptools",
+]
+release = [
+    {include-group = "build"},
     "twine",
 ]
-misc = [
-    "pre-commit",
+tox = [
     "tox",
+    "tox-gh-actions",
 ]
-all = [{include-group = "test"}, {include-group = "docs"}, {include-group = "typing"}, {include-group = "lint"}, {include-group = "release"}, {include-group = "misc"}]
+dev = [
+    {include-group = "test"},
+    {include-group = "docs"},
+    {include-group = "typing"},
+    {include-group = "lint"},
+    {include-group = "release"},
+    {include-group = "tox"},
+    "pre-commit"
+]
 
 
 ######################################################################
