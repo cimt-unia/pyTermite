@@ -99,7 +99,7 @@ def serialize_dict(d: dict) -> dict:
         elif isinstance(v, (str, int, list, float, bool, dict, type(None))):
             output_dict[str(k)] = v
         elif is_dataclass(v):
-            output_dict[str(k)] = asdict(v)  # type: ignore
+            output_dict[str(k)] = asdict(v)  # type: ignore[arg-type]
         else:
             output_dict[str(k)] = v.__dict__ if hasattr(v, "__dict__") else str(v)
     return output_dict

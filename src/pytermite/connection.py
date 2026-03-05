@@ -266,7 +266,7 @@ async def scan_for_gopros(timeout: int = 10) -> set[str]:
     # (or the user input) to finish after one condition has fired.
     for p in pending:
         logger.debug(
-            f"Cancelling pending task: {p.get_coro().__name__}"  # type: ignore
+            f"Cancelling pending task: {p.get_coro().__name__}"  # type: ignore[union-attr]
         )
         p.cancel()
 
