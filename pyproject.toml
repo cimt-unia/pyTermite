@@ -126,6 +126,7 @@ select = [
     "ICN",
     "N",
     "PT",
+    "PGH",
     "PTH",
     "RET",
     "W",
