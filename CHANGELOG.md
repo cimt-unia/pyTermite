@@ -87,3 +87,11 @@
 - Fix linting workflow
 - Fix CI workflow
 - Fix CI workflow
+- Update changelog
+- Fix linting workflow
+- Add needs statements to CI workflow to ensure correct job order
+- Run linting workflow only on dev branch
+- Fix concurrency groups in GitHub workflows
+- Fix deadlock due to same job and workflow name
+- Fix deadlock due to same job and workflow name
+- Give explicit concurrency names
