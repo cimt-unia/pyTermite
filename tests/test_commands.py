@@ -47,7 +47,7 @@ async def test_get_preset_status(monkeypatch, dummy_wired_connection_factory):
     monkeypatch.setattr(
         commands,
         "requests",
-        SimpleNamespace(request=lambda *_: DummyResp({"presets": 1})),
+        SimpleNamespace(request=lambda *_, **__: DummyResp({"presets": 1})),
     )
     res = await commands.get_preset_status({conn})
     # the result keys are connection.name values which in our dummy is

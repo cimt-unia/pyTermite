@@ -23,6 +23,8 @@ from pytermite.utils import create_base_url, serialize_dict
 
 logger = structlog.get_logger()
 
+TIMEOUT = 5
+
 
 async def get_camera_info(
     connected_gopros: set[WiredConnection],
@@ -98,7 +100,8 @@ async def get_preset_status(
         url = create_base_url(connection.identifier) + "/presets/get"
         # querystring = {"include-hidden": "0"}  # Currently not working
 
-        response = requests.request("GET", url)
+        global TIMEOUT
+        response = requests.request("GET", url, timeout=TIMEOUT)
         state = response.json()
 
         # Currently not working in open_gopro
