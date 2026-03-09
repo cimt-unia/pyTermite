@@ -36,11 +36,9 @@ jobs:
         with:
           python-version: 3.12
 
-      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098
-
-      - run: uv tool install ruff --with ruff-uv --with ruff-gh-actions
-
-      - run: uv ruff check src tests --fix --show-fixes
+      - name: Run Ruff
+        id: ruff
+        uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6
 
   mypy:
     name: Type Check Code
@@ -59,6 +57,6 @@ jobs:
 
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098
 
-      - run: uv tool install mypy --with mypy-uv --with mypy-gh-actions
+      - run: uv tool install mypy
 
-      - run: uv mypy src tests
+      - run: uv mypy .
