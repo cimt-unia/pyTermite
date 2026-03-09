@@ -107,6 +107,7 @@ jobs:
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
         with:
           name: Packages
+          path: ./dist
 
       - name: Set up Python 3.12
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
@@ -116,7 +117,7 @@ jobs:
       - name: Install the built package
         id: install-package
         run: |
-          pip install dist/pyTermite-*.whl
+          pip install dist/pytermite-*.whl
           version=$(python -c "import pytermite; print(pytermite.get_version())")
           echo "Installed pyTermite version: $version"
           echo "version=$version" >> $GITHUB_OUTPUT
