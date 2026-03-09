@@ -6,7 +6,7 @@ defaults:
 name: CI
 run-name: Run CI for ${{ github.ref_name }}
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-ci
   cancel-in-progress: true
 
 on:
