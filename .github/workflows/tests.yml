@@ -6,7 +6,7 @@ defaults:
 name: Tests
 run-name: Run tests for ${{ github.ref_name }}
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 on:

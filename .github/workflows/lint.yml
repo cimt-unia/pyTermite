@@ -6,7 +6,7 @@ defaults:
 name: Lint
 run-name: Run Lints for ${{ github.ref_name }}
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 on:
