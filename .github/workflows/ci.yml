@@ -25,20 +25,20 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
+  run-lints:
     name: Lint Code
     uses: ./.github/workflows/lint.yml
 
-  test:
+  run-tests:
     uses: ./.github/workflows/tests.yml
-    needs: lint
+    needs: run-lints
 
   generate-changelog:
     name: Generate changelog
     runs-on: ubuntu-22.04
     permissions:
       contents: write
-    needs: [lint, test]
+    needs: [run-lints, run-tests]
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
