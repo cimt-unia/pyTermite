@@ -80,7 +80,7 @@ release = [
     "twine",
 ]
 tox = [
-    "tox",
+    "tox>=4.49.0",
     "tox-gh-actions",
 ]
 dev = [
@@ -103,45 +103,68 @@ version = {attr = "pytermite.__version__"}
 ######################################################################
 # Ruff
 [tool.ruff]
-target-version = "py312"
 exclude = [
     "build",
     "dist",
     "docs",
+    "demo.py",
 ]
 
 [tool.ruff.lint]
 preview = true
 select = [
     "A",
+    "ANN",
     "ARG",
+    "ASYNC",
     "B",
     "C4",
     "C90",
+    "COM",
     "CPY",
     "D",
     "E",
     "F",
+    "G",
     "I",
     "ICN",
+    "INP",
     "N",
+    "PERF",
     "PT",
     "PGH",
     "PTH",
+    "Q",
     "RET",
+    "RUF",
+    "S",
+    "SLF",
+    "UP",
     "W",
 ]
 ignore = [
+    "ANN401",
+    "COM812",
+    "D206",
+    "D300",
     "E111",
     "E114",
     "E117",
-    "D206",
-    "D300",
     "W191",
+    "SLF001",
+    "G004",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG001", "ARG002", "D"]
+"tests/*" = [
+    "ANN",
+    "ARG001",
+    "ARG002",
+    "ASYNC",
+    "D",
+    "RUF029",
+    "S101"
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
@@ -182,8 +205,10 @@ files = "src/pytermite"
 strict = false
 pretty = true
 disable_error_code = ["import-not-found", "import-untyped"]
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 check_untyped_defs = true
 follow_untyped_imports = true
+warn_unreachable = true
 
 
 ######################################################################
@@ -192,4 +217,8 @@ follow_untyped_imports = true
 testpaths = [
     "tests",
 ]
-addopts = "--cov --cov-branch --cov-append --cov-report=term-missing --cov-report=xml --import-mode=importlib --random-order"
+addopts = "-ra --cov --cov-branch --cov-append --cov-report=term-missing --cov-report=xml --import-mode=importlib --random-order --strict-config --strict-markers"
+minversion = "9"
+log_level = "INFO"
+xfail_strict = true
+filterwarnings = ["error"]
