@@ -12,11 +12,11 @@ concurrency:
 on:
   push:
     branches:
-      - main
+      # - main # runs via ci.yml, so we can run lint on dev only here
       - dev
   pull_request:
     branches:
-      - main
+      # - main # runs via ci.yml, so we can run lint on dev only here
       - dev
   workflow_call:
   workflow_dispatch:
