@@ -3,8 +3,11 @@ defaults:
   run:
     shell: bash
 
-name: tests
-run-name: Run tests
+name: Tests
+run-name: Run tests for ${{ github.ref_name }}
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 
 on:
   push:
@@ -38,16 +41,22 @@ jobs:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
         python-version: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: ${{ matrix.python-version }}
+
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098
+
       - run: uv tool install tox --with tox-uv --with tox-gh-actions
+
       - run: tox
-      # You only need to upload code coverage once to codecov unless you have a
-      # more complex build that you need coverage for.
+
       - name: Upload coverage to Codecov
         if: ${{ matrix.os == 'ubuntu-latest' &&  matrix.python-version == '3.12'}}
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
