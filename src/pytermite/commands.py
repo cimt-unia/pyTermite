@@ -113,7 +113,8 @@ async def get_preset_status(
 
 
 async def camera_shutter(
-    connected_gopros: set[WiredConnection], mode: str = "start"
+    connected_gopros: set[WiredConnection],
+    mode: str = "start",
 ) -> None:
     """
     Start or stop recording on all connected GoPro cameras.
@@ -135,7 +136,7 @@ async def camera_shutter(
     """
     if len(connected_gopros) == 0:
         logger.warning(
-            "No connected GoPro cameras found. Please connect at least one camera."
+            "No connected GoPro cameras found. Please connect at least one camera.",
         )
         return
 

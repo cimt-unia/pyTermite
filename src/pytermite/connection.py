@@ -16,6 +16,8 @@ import asyncio
 import os
 import pathlib
 import sys
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import structlog
 from open_gopro import WiredGoPro
@@ -54,7 +56,7 @@ class WiredConnection(WiredGoPro):
         the serial numbers mapping.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         name = kwargs.pop("name", None)
         super().__init__(**kwargs)
         self._name: str | None = name
@@ -76,7 +78,7 @@ class WiredConnection(WiredGoPro):
         """
         if not self._name:
             info = serialize_dict(
-                (await self.http_command.get_camera_info()).data.__dict__
+                (await self.http_command.get_camera_info()).data.__dict__,
             )
             name = info.get("ap_ssid", None)
             self._name = name or reverse_dict(SERIALS)[self.identifier]
@@ -110,7 +112,9 @@ def create_wired_gopros(
     return gopros
 
 
-async def connect_gopros(gopros: dict[str, WiredConnection]):
+async def connect_gopros(
+    gopros: dict[str, WiredConnection],
+) -> AsyncGenerator[WiredConnection, None]:
     """
     Attempt to open a connection to each provided :py:class:`~WiredConnection`.
 
@@ -147,7 +151,7 @@ async def close_gopros(gopros: dict[str, WiredConnection]) -> None:
     gopros : dict[str, WiredConnection]
         Mapping of camera keys to :py:class:`~WiredConnection` objects to close.
     """
-    for _, gopro in gopros.items():
+    for gopro in gopros.values():
         await gopro.close()
         logger.debug(f"Disconnected from {await gopro.name}")
 
@@ -185,7 +189,8 @@ async def wait_for_user_interrupt() -> None:
                 _ = sys.stdin.readline()
         except Exception:
             logger.warning(
-                "Failed to read user input for interrupt signal", exc_info=True
+                "Failed to read user input for interrupt signal",
+                exc_info=True,
             )
         # log asynchronously; schedule it on the loop
         loop.create_task(logger.ainfo("Stopping..."))
@@ -206,7 +211,8 @@ async def wait_for_user_interrupt() -> None:
             loop.remove_reader(fd)
         except Exception:
             logger.warning(
-                "Failed to remove stdin reader for user interrupt", exc_info=True
+                "Failed to remove stdin reader for user interrupt",
+                exc_info=True,
             )
 
 

@@ -61,9 +61,7 @@ async def test_connect_and_close_gopros(monkeypatch):
 
     gopros = {"a": D("S1"), "b": D("S2")}
 
-    collected = []
-    async for gp in connection.connect_gopros(gopros):
-        collected.append(gp)
+    collected = [gp async for gp in connection.connect_gopros(gopros)]
 
     assert len(collected) == 2
     # test close

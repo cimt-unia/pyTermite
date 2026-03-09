@@ -1,3 +1,4 @@
+# ruff: noqa: RUF067
 """
 `pyTermite` is a small package to control multiple GoPro cameras via USB connection.
 
@@ -19,9 +20,9 @@ __version__ = "0.0.1"
 __author__ = "Lukas Behammer"
 
 __all__ = [
-    "get_version",
-    "connection",
     "commands",
+    "connection",
+    "get_version",
     "utils",
 ]
 

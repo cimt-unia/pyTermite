@@ -43,7 +43,11 @@ class DummyHTTPCommand:
 
 class DummyWiredConnection:
     def __init__(
-        self, serial: str, name: str | None = None, camera_info=None, camera_state=None
+        self,
+        serial: str,
+        name: str | None = None,
+        camera_info=None,
+        camera_state=None,
     ):
         self.identifier = serial
         self.serial = serial
@@ -70,10 +74,16 @@ class DummyWiredConnection:
 @pytest.fixture
 def dummy_wired_connection_factory():
     def _factory(
-        serial: str, name: str | None = None, camera_info=None, camera_state=None
+        serial: str,
+        name: str | None = None,
+        camera_info=None,
+        camera_state=None,
     ):
         return DummyWiredConnection(
-            serial=serial, name=name, camera_info=camera_info, camera_state=camera_state
+            serial=serial,
+            name=name,
+            camera_info=camera_info,
+            camera_state=camera_state,
         )
 
     return _factory

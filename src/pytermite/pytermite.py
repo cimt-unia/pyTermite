@@ -68,26 +68,27 @@ def _setup_history() -> None:
                     file=str(histfile),
                 )
 
-            def _save_hist():
+            def _save_hist() -> None:
                 try:
                     readline.write_history_file(str(histfile))
                 except Exception:
                     logger.warning(
-                        "Failed to write history file on exit", file=str(histfile)
+                        "Failed to write history file on exit",
+                        file=str(histfile),
                     )
 
             atexit.register(_save_hist)
         except Exception:
             logger.warning(
-                "Failed to set up history file; command history will not be saved"
+                "Failed to set up history file; command history will not be saved",
             )
     except Exception:
         logger.warning(
-            "Failed to import readline; command history will not be available"
+            "Failed to import readline; command history will not be available",
         )
 
 
-def _check_line(line: str, ctx) -> str | None:
+def _check_line(line: str, ctx: click.Context) -> str | None:
     """
     Check if the input line is a special command that should be handled directly.
 
@@ -122,7 +123,7 @@ def _check_line(line: str, ctx) -> str | None:
     return None
 
 
-def _run_repl(ctx) -> None:
+def _run_repl(ctx: click.Context) -> None:
     """
     Run the interactive REPL.
 
@@ -188,7 +189,7 @@ def _run_repl(ctx) -> None:
 )
 @click.version_option(None, "-v", "--version")
 @click.pass_context
-def cli(ctx, interactive):
+def cli(ctx: click.Context, interactive: bool) -> None:
     """
     `pyTermite` CLI - Control multiple GoPro cameras via USB connection.
 
@@ -260,7 +261,7 @@ def scan(timeout: int) -> None:
     "JSON format.",
     envvar="PYTERMITE_SERIALS_PATH",
 )
-def connect(auto, serials, serials_file) -> None:
+def connect(auto: bool, serials: str | None, serials_file: str | None) -> None:
     """
     Connect to one or more GoPro devices using the selected discovery method.
 
@@ -287,27 +288,26 @@ def connect(auto, serials, serials_file) -> None:
     elif serials:
         log = log.bind(option="serials")
         log.info("Using provided serial numbers to connect to GoPro cameras...")
-        serials = [s.strip() for s in serials.split(",")]
-        serial_numbers = set(serials)
+        serial_numbers = {s.strip() for s in serials.split(",")}
     elif serials_file:
         log = log.bind(option="serials_file")
         log.info(
-            "Loading serial numbers from provided file to connect to GoPro cameras..."
+            "Loading serial numbers from provided file to connect to GoPro cameras...",
         )
         serial_numbers = load_serial_numbers_from_json(serials_file)
     else:
         raise click.UsageError(
-            "Please specify a connection method: --auto, --serials, or --serials-file."
+            "Please specify a connection method: --auto, --serials, or --serials-file.",
         )
     if serial_numbers:
-        log.debug(f"Serial numbers to connect to: {serial_numbers}")
+        log.debug("Serial numbers to connect to: %s", serial_numbers)
     else:
         serial_numbers = set()
         for gp in GOPROS.values():
             if isinstance(gp, WiredConnection):
-                assert gp.serial is not None
-                serial_numbers.add(gp.serial)
-        log.debug(f"Serial numbers to connect to: {serial_numbers}")
+                if gp.serial is not None:
+                    serial_numbers.add(gp.serial)
+        log.debug("Serial numbers to connect to: %s", serial_numbers)
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
     asyncio.run(_connect_to_gopros())
     log.info("Connected to all requested GoPro cameras")
