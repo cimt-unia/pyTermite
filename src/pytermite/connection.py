@@ -166,8 +166,7 @@ async def wait_for_user_interrupt() -> None:
     immediately (the reader is removed in the finally block). This avoids the
     problem where awaiting a blocking input call prevents task cancellation.
     """
-    await logger.adebug("Waiting for user interrupt (press Enter)...")
-    global INTERRUPT
+    await logger.ainfo("Waiting for user interrupt (press Enter)...")
     loop = asyncio.get_running_loop()
     fd = sys.stdin.fileno()
     event = asyncio.Event()
@@ -192,11 +191,6 @@ async def wait_for_user_interrupt() -> None:
                 "Failed to read user input for interrupt signal",
                 exc_info=True,
             )
-        # log asynchronously; schedule it on the loop
-        loop.create_task(logger.ainfo("Stopping..."))
-        # set global flag and notify the waiting coroutine
-        global INTERRUPT
-        INTERRUPT = True
         event.set()
 
     # Register the reader and await the event. Use the file descriptor
@@ -205,6 +199,7 @@ async def wait_for_user_interrupt() -> None:
     loop.add_reader(fd, lambda: _on_input())
     try:
         await event.wait()
+        await logger.ainfo("User interrupt received. Stopping...")
     finally:
         # Ensure removal is attempted but ignore if it's already gone.
         try:
@@ -216,36 +211,17 @@ async def wait_for_user_interrupt() -> None:
             )
 
 
-async def wait_for_timeout(timeout: int) -> None:
-    """
-    Wait for the given timeout and set the global interrupt flag.
-
-    Parameters
-    ----------
-    timeout : int
-        Seconds to wait before setting the interrupt flag.
-    """
-    await logger.ainfo(f"Waiting for {timeout} seconds...")
-    global INTERRUPT
-    while not INTERRUPT:
-        await asyncio.sleep(timeout)
-        await logger.ainfo("Timeout reached. Stopping...")
-        INTERRUPT = True
-
-
-async def scan_for_gopros(timeout: int = 10) -> set[str]:
+async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
     """
     Scan for connected GoPro devices via USB connection and return a set of serials.
 
     The scan runs until either the user requests to stop (press Enter) or the
-    timeout task fires. Both are executed concurrently alongside the USB
-    scanning task. When one of the stop conditions completes, all remaining
-    tasks are cancelled so the function returns immediately instead of waiting
-    for the timeout to finish.
+    timeout happens. Both are executed concurrently alongside the USB
+    scanning task.
 
     Parameters
     ----------
-    timeout : int, optional
+    waiting_time : int, optional
         Maximum seconds to wait for discovery. Default is 10.
 
     Returns
@@ -253,55 +229,17 @@ async def scan_for_gopros(timeout: int = 10) -> set[str]:
     set[str]
         Set of discovered device serial numbers (strings).
     """
-    global INTERRUPT, GOPROS
+    global GOPROS
     # reset state for each invocation
-    INTERRUPT = False
     GOPROS = set()
 
-    # Create tasks explicitly and wait for the first one to complete.
-    scan_task = asyncio.create_task(scan_for_gopros_usb())
-    user_task = asyncio.create_task(wait_for_user_interrupt())
-    timeout_task = asyncio.create_task(wait_for_timeout(timeout))
-
-    # Wait until either scan completes, user interrupts, or timeout occurs.
-    done, pending = await asyncio.wait(
-        {scan_task, user_task, timeout_task}, return_when=asyncio.FIRST_COMPLETED
-    )
-
-    # Cancel any tasks that are still pending so we don't wait for the timeout
-    # (or the user input) to finish after one condition has fired.
-    for p in pending:
-        logger.debug(
-            f"Cancelling pending task: {p.get_coro().__name__}"  # type: ignore[union-attr]
-        )
-        p.cancel()
-
-    # Ensure pending tasks are awaited to suppress warnings and allow proper
-    # cancellation handling.
-    await asyncio.gather(*pending, return_exceptions=True)
-
-    # The scan task should complete soon after INTERRUPT is set; wait briefly
-    # for it and if it doesn't finish, cancel it.
-    if not scan_task.done():
-        try:
-            await asyncio.wait_for(scan_task, timeout=2)
-        except asyncio.TimeoutError:
-            scan_task.cancel()
-            try:
-                await scan_task
-            except Exception:
-                logger.warning(
-                    "Failed to cancel scan task after timeout", exc_info=True
-                )
-
-    # If scan_task completed normally, return its result; otherwise return the
-    # current GOPROS set which reflects discovered devices so far.
     try:
-        if scan_task.cancelled():
-            return GOPROS
-        return scan_task.result()
-    except Exception:
-        return GOPROS
+        async with asyncio.timeout(waiting_time):
+            await wait_for_user_interrupt()
+            await scan_for_gopros_usb()
+    except TimeoutError:
+        await logger.ainfo("Timeout reached. Stopping...")
+    return GOPROS
 
 
 async def scan_for_gopros_usb() -> set[str]:
@@ -314,16 +252,15 @@ async def scan_for_gopros_usb() -> set[str]:
         Set of discovered device serial numbers (strings).
     """
     global GOPROS
-    global INTERRUPT
-    while not INTERRUPT:
-        try:
-            response = await find_first_ip_addr(
-                WiredConnection._MDNS_SERVICE_NAME, timeout=2
-            )
-            name = response.name.split(".")[0]
-            if name not in GOPROS:
-                await logger.ainfo(f"Found new GoPro device with serial: {name}")
-            GOPROS.add(name)
-        except FailedToFindDevice:
-            continue
+    try:
+        response = await find_first_ip_addr(
+            WiredConnection._MDNS_SERVICE_NAME,
+            timeout=2,
+        )
+        name = response.name.split(".")[0]
+        if name not in GOPROS:
+            await logger.ainfo(f"Found new GoPro device with serial: {name}")
+        GOPROS.add(name)
+    except FailedToFindDevice:
+        pass
     return GOPROS

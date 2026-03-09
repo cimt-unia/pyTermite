@@ -236,7 +236,7 @@ def scan(timeout: int) -> None:
     timeout : int
         How long to wait for discovery in seconds.
     """
-    asyncio.run(scan_for_gopros(timeout=timeout))
+    asyncio.run(scan_for_gopros(waiting_time=timeout))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -281,7 +281,7 @@ def connect(auto: bool, serials: str | None, serials_file: str | None) -> None:
         log = log.bind(option="auto")
         if len(GOPROS) == 0:
             log.info("Searching for connected GoPro cameras via USB connection...")
-            serial_numbers = asyncio.run(scan_for_gopros(timeout=5))
+            serial_numbers = asyncio.run(scan_for_gopros(waiting_time=5))
         else:
             log.info("Using previously discovered GoPro cameras to connect...")
             pass
