@@ -95,3 +95,6 @@
 - Fix deadlock due to same job and workflow name
 - Fix deadlock due to same job and workflow name
 - Give explicit concurrency names
+- Update changelog
+- Enable signed commits from github-actions[bot]
+- Run tests only on dev branch when not run from workflow_call or workflow_dispatch
