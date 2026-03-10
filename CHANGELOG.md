@@ -98,3 +98,7 @@
 - Update changelog
 - Enable signed commits from github-actions[bot]
 - Run tests only on dev branch when not run from workflow_call or workflow_dispatch
+- Update changelog
+- Let tests and linting run concurrently during CI workflow
+- Add project urls
+- Add release workflow
