@@ -57,14 +57,13 @@ jobs:
 
       - name: Commit full changelog
         id: commit-changelog
-        run: |
-          git checkout main
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          set +e
-          git add CHANGELOG.md
-          git commit -m "chore: update changelog"
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git HEAD:main
+        uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde
+        with:
+          commit_message: "chore: update changelog"
+          repo: ${{ github.repository }}
+          branch: ${{ github.head_ref || github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
       - name: Generate a release changelog
         uses: orhun/git-cliff-action@07dda386992489f0a6151dee53f3a137713644de
