@@ -1,0 +1,83 @@
+---
+defaults:
+  run:
+    shell: bash
+
+name: CD
+run-name: Release ${{ github.ref_name }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-cd
+  cancel-in-progress: true
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  ci:
+    name: Run CI workflow
+    uses: ./.github/workflows/ci.yml
+    with:
+      version: ${{ github.ref_name }}
+
+  publish-pypi:
+    name: Make a PyPI Release
+    runs-on: ubuntu-latest
+    needs: ci
+    permissions:
+      id-token: write
+    environment:
+      name: publish-package
+      url: https://pypi.org/p/pyTermite
+    steps:
+      - name: Collect built artifacts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
+        with:
+          name: Packages
+
+      - name: Publish Python distribution to Test PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          print-hash: true
+
+  publish-github:
+    name: Make a GitHub Release
+    runs-on: ubuntu-latest
+    needs: ci
+    permissions:
+      id-token: write
+      attestations: write
+      contents: write
+    steps:
+      - name: Collect built artifacts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
+        with:
+          name: Packages
+
+      - name: Generate artifact attestation for sdist and wheels
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: "dist/pyTermite-*"
+
+      - name: Verify artifact attestation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          for artifact in dist/*; do
+              echo "# ${artifact}"
+              gh attestation verify "${artifact}" --repo ${{ github.repository }}
+          done
+
+      - name: Collect changelog for release
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
+        with:
+          name: Changes
+
+      - name: Publish Python distribution to GitHub Releases
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
+        with:
+          files: dist/*
+          body_path: CHANGES.md
