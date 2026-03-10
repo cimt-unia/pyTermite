@@ -33,11 +33,13 @@ dependencies = [
 ]
 
 [project.urls]
-#Repository
+Repository = "https://github.com/cimt-unia/pyTermite"
 #Homepage
-#Documentation
-#Tracker
-#Download
+Documentation = "https://pytermite.readthedocs.io/en/latest/"
+Changelog = "https://github.com/cimt-unia/pyTermite/blob/main/CHANGELOG.md"
+Tracker = "https://github.com/cimt-unia/pyTermite/issues"
+Download = "https://github.com/cimt-unia/pyTermite/releases/latest"
+Codecov = "https://codecov.io/gh/cimt-unia/pyTermite"
 
 [project.scripts]
 pytermite = "pytermite.pytermite:cli"
