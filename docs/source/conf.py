@@ -4,6 +4,11 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+from importlib.metadata import version as get_version
+
+release = get_version("pyTermite")
+version = release
+
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -11,16 +16,6 @@ import os
 project = 'pyTermite'
 copyright = '2026, Lukas Behammer'
 author = 'Lukas Behammer'
-
-with open("../../src/pytermite/__init__.py") as f:
-    setup_lines = f.readlines()
-version = "vUndefined"
-for line in setup_lines:
-    if line.startswith("__version__"):
-        version = line.split('"')[1]
-        break
-
-release = version
 
 
 # -- General configuration ---------------------------------------------------

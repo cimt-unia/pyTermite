@@ -44,7 +44,7 @@ Codecov = "https://codecov.io/gh/cimt-unia/pyTermite"
 pytermite = "pytermite.pytermite:cli"
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]
 build-backend = "setuptools.build_meta"
 
 [dependency-groups]
@@ -93,12 +93,6 @@ dev = [
     {include-group = "tox"},
     "pre-commit"
 ]
-
-
-######################################################################
-# Setuptools
-[tool.setuptools.dynamic]
-version = {attr = "pytermite.__version__"}
 
 
 ######################################################################

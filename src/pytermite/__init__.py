@@ -16,7 +16,14 @@ Examples
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
-__version__ = "0.0.1"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("package-name")
+except PackageNotFoundError:
+    # package is not installed
+    pass
+
 __author__ = "Lukas Behammer"
 
 __all__ = [
