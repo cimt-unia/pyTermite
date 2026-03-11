@@ -50,6 +50,8 @@ jobs:
     name: Make a GitHub Release
     runs-on: ubuntu-latest
     needs: ci
+    # temporarily disable job until publishing to TestPyPI works, to avoid spamming releases
+    if: false
     permissions:
       id-token: write
       attestations: write
