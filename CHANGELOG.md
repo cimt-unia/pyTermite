@@ -1,5 +1,10 @@
 ## [unreleased]
 
+### ⚙️ Miscellaneous Tasks
+
+- Fix nested workflow permissions
+## [0.1.0] - 2026-03-10
+
 ### 🚀 Features
 
 - Add cli and logging
@@ -49,7 +54,6 @@
 
 ### ⚙️ Miscellaneous Tasks
 
-- Init
 - Add Code of Conduct
 - Add dev requirements
 - Add contributing guidelines
@@ -102,3 +106,9 @@
 - Let tests and linting run concurrently during CI workflow
 - Add project urls
 - Add release workflow
+- Update changelog
+## [0.0.1] - 2026-02-05
+
+### ⚙️ Miscellaneous Tasks
+
+- Init
