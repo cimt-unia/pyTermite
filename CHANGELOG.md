@@ -114,6 +114,8 @@
 - Fix tag pushing in release workflow
 - Escape dunder names in changelog for correct markdown rendering
 - Add link to package logo in README.md for correct rendering on PyPI
+- Remove release workflow
+- Strip leading v from CI workflow input in CD workflow
 
 ## [0.0.1] - 2026-02-05
 
