@@ -19,7 +19,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: Unix",
-    "Private :: Do Not Upload", # !: Remove before publishing
 ]
 license = "BSD-3-Clause"
 license-files = ["LICENSE.txt"]
