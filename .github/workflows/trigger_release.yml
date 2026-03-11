@@ -1,0 +1,77 @@
+---
+defaults:
+  run:
+    shell: bash
+
+name: Release
+run-name: Trigger a release for ${{ github.ref_name }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-release
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-changelog:
+    name: Generate changelog
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: Generate a full changelog
+        uses: orhun/git-cliff-action@07dda386992489f0a6151dee53f3a137713644de
+        id: git-cliff-full
+        with:
+          config: cliff.toml
+          args: --verbose
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Commit full changelog
+        id: commit-changelog
+        uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde
+        with:
+          commit_message: "chore: update changelog"
+          repo: ${{ github.repository }}
+          branch: ${{ github.head_ref || github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+  tag:
+    name: Create a release tag
+    runs-on: ubuntu-latest
+    needs: generate-changelog
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          fetch-tags: 'true'
+
+      - name: Install autotag binary
+        run: |
+          curl -sL https://git.io/autotag-install | sudo sh -s -- -b /usr/bin
+
+      - name: Increment version
+        id: autotag
+        run: |
+          autotag
+
+      - name: Commit version bump
+        id: commit-version-bump
+        uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde
+        with:
+          commit_message: "chore: bump version to ${{ steps.autotag.outputs.new_version }}"
+          repo: ${{ github.repository }}
+          branch: ${{ github.head_ref || github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
