@@ -19,7 +19,7 @@ Examples
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    __version__ = version("package-name")
+    __version__ = version("pytermite")
 except PackageNotFoundError:
     # package is not installed
     pass
@@ -47,4 +47,10 @@ def get_version() -> str:
     str
         The version string of the package.
     """
-    return __version__
+    try:
+        return __version__
+    except NameError as e:
+        raise RuntimeError(
+            "Version information is not available."
+            "The package may not be installed properly."
+        ) from e
