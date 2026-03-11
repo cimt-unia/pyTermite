@@ -1,5 +1,5 @@
 """
-High-level commands used by the pytermite CLI.
+High-level commands used by the pyTermite CLI.
 
 Convenience helpers that operate on sets of connected WiredConnection objects to
 retrieve camera information, status and control (start/stop recording).

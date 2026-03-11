@@ -104,4 +104,4 @@ Interactive REPL and convenience notes
 --------------------------------------
 - Running ``pytermite`` with no subcommand launches an interactive REPL. The REPL supports typing ``help`` to view available commands and ``exit`` or ``quit`` to leave.
 - Use the global ``--interactive`` (``-i``) flag with any one-shot command to keep the process open and return to the REPL after the command completes.
-- For automation tasks consider using the underlying Python API exposed by the ``pytermite`` package (modules: :mod:`pytermite.connection`, :mod:`pytermite.commands`, :mod:`pytermite.utils`) instead of the CLI.
+- For automation tasks consider using the underlying Python API exposed by the ``pyTermite`` package (modules: :mod:`pytermite.connection`, :mod:`pytermite.commands`, :mod:`pytermite.utils`) instead of the CLI.

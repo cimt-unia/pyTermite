@@ -1,5 +1,5 @@
 """
-Utility helpers used across the pytermite package.
+Utility helpers used across the pyTermite package.
 
 Small convenience functions for loading serial mappings, serial -> URL
 conversion, simple dict utilities and serializing complex objects to plain

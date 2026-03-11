@@ -5,12 +5,12 @@
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
-"""Demo script that shows how to use pytermite to collect camera data.
+"""Demo script that shows how to use pyTermite to collect camera data.
 
 Short Summary
 -------------
 This script demonstrates a simple asynchronous workflow using the
-`pytermite` package: it loads configured GoPro serial numbers, creates
+`pyTermite` package: it loads configured GoPro serial numbers, creates
 wired connection objects, connects to each camera, retrieves camera
 information, runtime state and preset configuration, and writes the
 results to JSON files under the local `./output` directory.

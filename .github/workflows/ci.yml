@@ -157,7 +157,7 @@ jobs:
         id: check-version
         run: |
           if [[ "$version" != "${{ inputs.version }}" ]]; then
-            echo "Version mismatch: Installed pytermite has version $version
+            echo "Version mismatch: Installed pyTermite has version $version
             but workflow input is ${{ inputs.version }}"
             exit 1
           fi

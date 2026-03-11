@@ -1,5 +1,5 @@
 [project]
-name = "pytermite"
+name = "pyTermite"
 dynamic = ["version"]
 description = "Control your GoPro swarm with ease using Python."
 authors = [
