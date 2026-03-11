@@ -1,4 +1,4 @@
-## [0.1.0] - 2026-03-11
+## [unreleased]
 
 ### 🚀 Features
 
@@ -75,47 +75,39 @@
 - Restructure dependency groups
 - Add labels for tox environments
 - Remove dev requirements file to facilitate using of dependency groups
-- Update pre-commit config
 - Add dependabot config
 - Add pygrep-hooks to ruff config
-- Update pre-commit config
 - Add __init__.py for tests
 - Add linting and CI as GitHub Workflows
 - Add config for git-cliff
 - Add concurrency for tests workflow
 - Fix linting workflow
 - Fix CI workflow
-- Fix CI workflow
 - Update changelog
-- Fix linting workflow
 - Add needs statements to CI workflow to ensure correct job order
 - Run linting workflow only on dev branch
 - Fix concurrency groups in GitHub workflows
 - Fix deadlock due to same job and workflow name
-- Fix deadlock due to same job and workflow name
 - Give explicit concurrency names
-- Update changelog
 - Enable signed commits from github-actions[bot]
 - Run tests only on dev branch when not run from workflow_call or workflow_dispatch
-- Update changelog
 - Let tests and linting run concurrently during CI workflow
 - Add project urls
 - Add release workflow
-- Update changelog
 - Fix nested workflow permissions
-- Update changelog
 - Add mdformat step before committing changelog
-- Update changelog
 - Run CI workflow only on non-version-tagged commits
-- Update changelog
 - Temporarily disable job until publishing to TestPyPI works
 - Fix paths for built dist
-- Update changelog
 - Enable test upload and release
-- Update changelog
 - Fix project name to pyTermite in every place
 - Add deploy environment for package release
 - Fix package name in path for artifact attestation step during release job
+- Remove commits from bots and duplicate commit messages from changelog generation
+- Add automatic versioning with setuptools_scm
+- Enable upload to regular PyPI
+- Add workflow to manually trigger releases
+- Fix changelog generation in CI workflow when called from other workflow
 
 ## [0.0.1] - 2026-02-05
 
