@@ -1,4 +1,4 @@
-## [unreleased]
+## [0.1.0] - 2026-03-11
 
 ### 🚀 Features
 
@@ -110,6 +110,8 @@
 - Update changelog
 - Temporarily disable job until publishing to TestPyPI works
 - Fix paths for built dist
+- Update changelog
+- Enable test upload and release
 
 ## [0.0.1] - 2026-02-05
 
