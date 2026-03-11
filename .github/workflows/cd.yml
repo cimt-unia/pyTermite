@@ -15,15 +15,26 @@ on:
       - 'v*.*.*'
 
 jobs:
+  prepare:
+    name: Prepare release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.clean_tag.outputs.version }}
+    steps:
+      - name: Strip leading 'v' from tag
+        id: clean_tag
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
   ci:
     name: Run CI workflow
+    needs: prepare
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: write
       id-token: write
       attestations: write
     with:
-      version: ${{ github.ref_name }}
+      version: ${{ needs.prepare.outputs.version }}
 
   publish-pypi:
     name: Make a PyPI Release
