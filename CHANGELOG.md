@@ -109,6 +109,9 @@
 - Enable upload to regular PyPI
 - Add workflow to manually trigger releases
 - Fix changelog generation in CI workflow when called from other workflow
+- Format changelog before committing when run from release workflow
+- Fix tag pushing in release workflow
+
 ## [0.0.1] - 2026-02-05
 
 ### ⚙️ Miscellaneous Tasks
