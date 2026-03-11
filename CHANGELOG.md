@@ -1,4 +1,4 @@
-## [0.1.0] - 2026-03-11
+## [unreleased]
 
 ### 🚀 Features
 
@@ -107,6 +107,9 @@
 - Add mdformat step before committing changelog
 - Update changelog
 - Run CI workflow only on non-version-tagged commits
+- Update changelog
+- Temporarily disable job until publishing to TestPyPI works
+- Fix paths for built dist
 
 ## [0.0.1] - 2026-02-05
 
