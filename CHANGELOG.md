@@ -105,6 +105,8 @@
 - Fix nested workflow permissions
 - Update changelog
 - Add mdformat step before committing changelog
+- Update changelog
+- Run CI workflow only on non-version-tagged commits
 
 ## [0.0.1] - 2026-02-05
 
