@@ -71,11 +71,10 @@ jobs:
         id: set-branch
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_call" ]]; then
+          if [[ "${{ inputs.version }}" != "" ]]; then
             echo "branch=main" >> $GITHUB_OUTPUT
           else
             echo "branch=${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
@@ -94,7 +93,7 @@ jobs:
 
       - name: Generate a release changelog
         uses: orhun/git-cliff-action@07dda386992489f0a6151dee53f3a137713644de
-        if: ${{ github.event_name == 'workflow_call' }}
+        if: ${{ inputs.version }}
         id: git-cliff-release
         with:
           config: cliff.toml
@@ -105,7 +104,7 @@ jobs:
 
       - name: Upload changelog
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
-        if: ${{ github.event_name == 'workflow_call' }}
+        if: ${{ inputs.version }}
         id: upload-changelog
         with:
           name: Changes
@@ -153,7 +152,7 @@ jobs:
           echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Check if the installed package version matches the workflow input
-        if: ${{ github.event_name == 'workflow_call' && inputs.version != '' }}
+        if: ${{ inputs.version && inputs.version != '' }}
         id: check-version
         run: |
           if [[ "$version" != "${{ inputs.version }}" ]]; then
