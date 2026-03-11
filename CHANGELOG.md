@@ -11,7 +11,7 @@
 ### 🐛 Bug Fixes
 
 - Await getting the name of connection for commands
-- Retrieve version at runtime and throw meaningful error when __version__ is not available
+- Retrieve version at runtime and throw meaningful error when \_\_version\_\_ is not available
 
 ### 🚜 Refactor
 
@@ -29,6 +29,7 @@
 - Update page titles
 - Update docs
 - Remove whitespace and comments on index page of docs
+- Add changelog
 
 ### ⚡ Performance
 
@@ -78,7 +79,7 @@
 - Remove dev requirements file to facilitate using of dependency groups
 - Add dependabot config
 - Add pygrep-hooks to ruff config
-- Add __init__.py for tests
+- Add \_\_init\_\_.py for tests
 - Add linting and CI as GitHub Workflows
 - Add config for git-cliff
 - Add concurrency for tests workflow
@@ -111,6 +112,8 @@
 - Fix changelog generation in CI workflow when called from other workflow
 - Format changelog before committing when run from release workflow
 - Fix tag pushing in release workflow
+- Escape dunder names in changelog for correct markdown rendering
+- Add link to package logo in README.md for correct rendering on PyPI
 
 ## [0.0.1] - 2026-02-05
 
