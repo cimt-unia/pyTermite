@@ -112,6 +112,10 @@
 - Fix paths for built dist
 - Update changelog
 - Enable test upload and release
+- Update changelog
+- Fix project name to pyTermite in every place
+- Add deploy environment for package release
+- Fix package name in path for artifact attestation step during release job
 
 ## [0.0.1] - 2026-02-05
 
