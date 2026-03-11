@@ -1,6 +1,6 @@
 # pyTermite
 
-<img src="branding/logo.png" alt="pyTermite logo" style="width: 40%; display: block; margin-left: auto; margin-right: auto;"/>
+<img src="https://raw.githubusercontent.com/cimt-unia/pyTermite/main/branding/logo.png" alt="pyTermite logo" style="width: 40%; display: block; margin-left: auto; margin-right: auto;"/>
 
 <!-- SPHINX-START-HERE -->
 
