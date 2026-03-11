@@ -34,6 +34,16 @@ jobs:
           OUTPUT: CHANGELOG.md
           GITHUB_REPO: ${{ github.repository }}
 
+      - name: Setup Python 3.12
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: 3.12
+
+      - name: Format with mdformat
+        run: |
+          pip install mdformat mdformat-gfm
+          mdformat CHANGELOG.md
+
       - name: Commit full changelog
         id: commit-changelog
         uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde
