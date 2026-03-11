@@ -51,6 +51,8 @@ jobs:
     name: Make a GitHub Release
     runs-on: ubuntu-latest
     needs: ci
+    environment:
+      name: publish-release
     permissions:
       id-token: write
       attestations: write
