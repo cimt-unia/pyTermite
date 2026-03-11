@@ -1,9 +1,4 @@
-## [unreleased]
-
-### ⚙️ Miscellaneous Tasks
-
-- Fix nested workflow permissions
-## [0.1.0] - 2026-03-10
+## [0.1.0] - 2026-03-11
 
 ### 🚀 Features
 
@@ -107,6 +102,10 @@
 - Add project urls
 - Add release workflow
 - Update changelog
+- Fix nested workflow permissions
+- Update changelog
+- Add mdformat step before committing changelog
+
 ## [0.0.1] - 2026-02-05
 
 ### ⚙️ Miscellaneous Tasks
