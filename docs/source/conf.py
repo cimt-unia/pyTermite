@@ -78,6 +78,7 @@ html_context = {
 html_sidebars = {
     "quickstart": [],
     "developer_guide": [],
+    "changelog": [],
 }
 
 

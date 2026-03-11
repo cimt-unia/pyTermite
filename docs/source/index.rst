@@ -16,6 +16,7 @@ pyTermite Documentation
    quickstart
    api_reference
    developer_guide
+   changelog
 
 
 .. include:: ../../README.md
