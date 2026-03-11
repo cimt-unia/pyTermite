@@ -11,6 +11,7 @@
 ### 🐛 Bug Fixes
 
 - Await getting the name of connection for commands
+- Retrieve version at runtime and throw meaningful error when __version__ is not available
 
 ### 🚜 Refactor
 
