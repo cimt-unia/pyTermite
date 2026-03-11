@@ -18,6 +18,10 @@ jobs:
   ci:
     name: Run CI workflow
     uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     with:
       version: ${{ github.ref_name }}
 
