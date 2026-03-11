@@ -13,6 +13,8 @@ on:
   push:
     branches:
       - main
+    tags-ignore:
+      - 'v*.*.*'
   pull_request:
     branches:
       - main
@@ -65,13 +67,28 @@ jobs:
           pip install mdformat mdformat-gfm
           mdformat CHANGELOG.md
 
+      - name: Set target branch for changelog commit
+        id: set-branch
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_call" ]]; then
+            echo "branch=main" >> $GITHUB_OUTPUT
+          else
+            echo "branch=${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Commit full changelog
         id: commit-changelog
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde
         with:
           commit_message: "chore: update changelog"
           repo: ${{ github.repository }}
-          branch: ${{ github.head_ref || github.ref_name }}
+          branch: ${{ steps.set-branch.outputs.branch }}
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
