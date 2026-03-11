@@ -76,12 +76,8 @@ jobs:
         run: |
           autotag
 
-      - name: Commit version bump
-        id: commit-version-bump
-        uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde
-        with:
-          commit_message: "chore: bump version to ${{ steps.autotag.outputs.new_version }}"
-          repo: ${{ github.repository }}
-          branch: ${{ github.head_ref || github.ref_name }}
+      - name: Push tag to GitHub
+        run: |
+          git push origin --tags
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
