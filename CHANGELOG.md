@@ -1,5 +1,11 @@
 ## [unreleased]
 
+### 📚 Documentation
+
+- Fix readthedocs build
+
+## [0.0.2] - 2026-03-11
+
 ### 🚀 Features
 
 - Add cli and logging
