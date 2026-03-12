@@ -4,6 +4,7 @@
 
 - Fix readthedocs build
 - Remove environment.yml from readthedocs post_checkout step
+- Avoid dirty Git index issues in readthedocs build
 
 ### ⚙️ Miscellaneous Tasks
 
