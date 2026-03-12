@@ -16,10 +16,7 @@ build:
       - pip install . --group docs  # Install the package and its docs dependencies
     post_checkout:
       # Avoid setuptools-scm dirty Git index issues
-      - git reset --hard HEAD
-      - git clean -fdx
-      # Enforce fail_on_shallow for setuptools-scm
-      - export SETUPTOOLS_SCM_OVERRIDES_FOR_${READTHEDOCS_PROJECT//-/_}='{scm.git.pre_parse="fail_on_shallow"}'
+      - git update-index --assume-unchanged environment.yml docs/conf.py
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
