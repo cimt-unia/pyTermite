@@ -16,7 +16,7 @@ build:
       - pip install . --group docs  # Install the package and its docs dependencies
     post_checkout:
       # Avoid setuptools-scm dirty Git index issues
-      - git update-index --assume-unchanged environment.yml docs/conf.py
+      - git update-index --assume-unchanged docs/conf.py
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
