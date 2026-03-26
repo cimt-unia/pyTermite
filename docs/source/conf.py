@@ -28,6 +28,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "numpydoc",
+    "sphinx_click",
     "sphinx_copybutton",
     "myst_parser",
 ]

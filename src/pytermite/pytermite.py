@@ -225,7 +225,9 @@ def cli(ctx: click.Context, interactive: bool) -> None:
     "-t",
     type=int,
     default=10,
+    show_default=True,
     help="Time to wait for GoPro devices to be discovered (in seconds).",
+    metavar="<int>",
 )
 def scan(timeout: int) -> None:
     """
@@ -245,6 +247,8 @@ def scan(timeout: int) -> None:
 @click.option(
     "--auto",
     is_flag=True,
+    default=True,
+    show_default=True,
     help="Automatically connect to all discovered GoPro cameras.",
 )
 @click.option(
@@ -252,6 +256,8 @@ def scan(timeout: int) -> None:
     "-s",
     help="Serial numbers of GoPro cameras to connect to. Separated by commas.",
     envvar="PYTERMITE_SERIALS",
+    show_envvar=True,
+    metavar="<str>",
 )
 @click.option(
     "--serials-file",
@@ -260,6 +266,8 @@ def scan(timeout: int) -> None:
     help="Path to a file containing serial numbers of GoPro cameras to connect to, "
     "JSON format.",
     envvar="PYTERMITE_SERIALS_PATH",
+    show_envvar=True,
+    metavar="<str>",
 )
 def connect(auto: bool, serials: str | None, serials_file: str | None) -> None:
     """

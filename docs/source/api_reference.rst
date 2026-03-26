@@ -10,5 +10,4 @@ pyTermite.
 
    connection
    commands
-   cli
    utils

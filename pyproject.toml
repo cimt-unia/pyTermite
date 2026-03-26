@@ -59,6 +59,7 @@ test = [
 docs = [
     "sphinx",
     "sphinx-autobuild",
+    "sphinx-click",
     "sphinx-copybutton",
     "numpydoc",
     "pydata-sphinx-theme<0.16.1",
@@ -159,6 +160,9 @@ ignore = [
     "D",
     "RUF029",
     "S101"
+]
+"src/pytermite/pytermite.py" = [
+    "D301",
 ]
 
 [tool.ruff.lint.pydocstyle]

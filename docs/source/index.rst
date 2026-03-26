@@ -14,6 +14,7 @@ pyTermite Documentation
    :hidden:
 
    quickstart
+   cli
    api_reference
    developer_guide
    changelog
