@@ -133,7 +133,11 @@ async def connect_gopros(
     for cam_name, gopro in gopros.items():
         try:
             await gopro.open(retries=1, timeout=1)
-            await logger.ainfo(f"Connected to {await gopro.name}")
+            await logger.ainfo(
+                f"Connected to {await gopro.name}",
+                cam_name=await gopro.name,
+                cam_serial=gopro.identifier,
+            )
             yield gopro
         except ResponseTimeout as e:
             await logger.aerror(
@@ -153,7 +157,11 @@ async def close_gopros(gopros: dict[str, WiredConnection]) -> None:
     """
     for gopro in gopros.values():
         await gopro.close()
-        logger.debug(f"Disconnected from {await gopro.name}")
+        logger.debug(
+            f"Disconnected from {await gopro.name}",
+            cam_name=await gopro.name,
+            cam_serial=gopro.identifier,
+        )
 
 
 async def wait_for_user_interrupt() -> None:
@@ -167,6 +175,7 @@ async def wait_for_user_interrupt() -> None:
     problem where awaiting a blocking input call prevents task cancellation.
     """
     await logger.ainfo("Waiting for user interrupt (press Enter)...")
+    await logger.adebug("Waiting for user interrupt")
     loop = asyncio.get_running_loop()
     fd = sys.stdin.fileno()
     event = asyncio.Event()
@@ -237,8 +246,9 @@ async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
         async with asyncio.timeout(waiting_time):
             await wait_for_user_interrupt()
             await scan_for_gopros_usb()
+        await logger.adebug("Waiting for timeout", timeout=waiting_time)
     except TimeoutError:
-        await logger.ainfo("Timeout reached. Stopping...")
+        await logger.ainfo("Timeout reached. Stopping...", timeout=waiting_time)
     return GOPROS
 
 
@@ -259,7 +269,9 @@ async def scan_for_gopros_usb() -> set[str]:
         )
         name = response.name.split(".")[0]
         if name not in GOPROS:
-            await logger.ainfo(f"Found new GoPro device with serial: {name}")
+            await logger.ainfo(
+                f"Found new GoPro device with serial: {name}", cam_serial=name
+            )
         GOPROS.add(name)
     except FailedToFindDevice:
         pass

@@ -15,6 +15,7 @@ multiple GoPro devices. Includes an interactive REPL for repeated commands.
 import asyncio
 import atexit
 import enum
+import logging
 import shlex
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from click import UsageError
 from click_help_colors import HelpColorsGroup
 
 from pytermite.commands import camera_shutter
+from pytermite.config import LOG_LEVEL
 from pytermite.connection import (
     WiredConnection,
     close_gopros,
@@ -46,6 +48,9 @@ class _LineContinue(enum.StrEnum):
     BREAK = "break"
 
 
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(LOG_LEVEL),
+)
 logger = structlog.get_logger()
 
 
@@ -194,9 +199,12 @@ def _run_repl(ctx: click.Context) -> None:
     help="After running a command, keep the process open and enter the interactive "
     "shell.",
 )
-@click.version_option(None, "-v", "--version")
+@click.version_option(None, "-V", "--version")
+@click.option("--verbose", "-v", is_flag=True, help="Show debug statements.")
 @click.pass_context
-def cli(ctx: click.Context, interactive: bool) -> None:
+def cli(
+    ctx: click.Context, interactive: bool, verbose: bool
+) -> None:  # numpydoc ignore=GL03
     """
     `pyTermite` CLI - Control multiple GoPro cameras via USB connection.
 
@@ -212,7 +220,19 @@ def cli(ctx: click.Context, interactive: bool) -> None:
     interactive : bool
         Whether to keep the process open and enter the interactive shell after
         running a command.
+    verbose : bool
+        Whether to show debug statements.
     """
+    # Configure log level
+    global LOG_LEVEL
+    if verbose:
+        LOG_LEVEL = logging.DEBUG
+    else:
+        LOG_LEVEL = logging.INFO
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(LOG_LEVEL),
+    )
+
     # Store the interactive preference globally so individual commands can
     # decide whether to drop into the REPL after finishing.
     global KEEP_OPEN
@@ -356,7 +376,7 @@ def disconnect() -> None:
     This will gracefully close each connection stored in the global ``GOPROS``
     mapping.
     """
-    log = logger.bind()
+    log = logger.bind(command="disconnect")
     log.info("Disconnecting from all connected GoPro cameras")
     global GOPROS
     asyncio.run(close_gopros(gopros=GOPROS))
@@ -396,7 +416,7 @@ def _exit_handler() -> None:
     Atexit handler to close connections on process exit.
     """  # noqa: D200
     log = logger.bind()
-    log.info("Exiting pyTermite CLI")
+    log.debug("Exiting pyTermite CLI")
     log.info("Closing all connections")
     global GOPROS
     asyncio.run(close_gopros(gopros=GOPROS))

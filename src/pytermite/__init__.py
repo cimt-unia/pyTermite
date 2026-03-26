@@ -28,12 +28,14 @@ __author__ = "Lukas Behammer"
 
 __all__ = [
     "commands",
+    "config",
     "connection",
     "get_version",
     "utils",
 ]
 
 import pytermite.commands as commands
+import pytermite.config as config
 import pytermite.connection as connection
 import pytermite.utils as utils
 
