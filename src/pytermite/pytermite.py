@@ -21,6 +21,7 @@ from pathlib import Path
 import click
 import structlog
 from click import UsageError
+from click_help_colors import HelpColorsGroup
 
 from pytermite.commands import camera_shutter
 from pytermite.connection import (
@@ -179,7 +180,13 @@ def _run_repl(ctx: click.Context) -> None:
     log.debug("Leaving interactive shell")
 
 
-@click.group(context_settings=CONTEXT_SETTINGS, invoke_without_command=True)
+@click.group(
+    context_settings=CONTEXT_SETTINGS,
+    invoke_without_command=True,
+    cls=HelpColorsGroup,
+    help_headers_color="magenta",
+    help_options_color="cyan",
+)
 @click.option(
     "--interactive",
     "-i",
