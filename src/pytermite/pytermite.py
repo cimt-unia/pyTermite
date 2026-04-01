@@ -354,15 +354,7 @@ def connect(auto: bool, serials: str | None, serials_file: str | None) -> None:
 
 
 async def _connect_to_gopros() -> None:
-    """
-    Connect to all GoPro objects stored in the global ``GOPROS`` mapping.
-
-    Yields
-    ------
-    None
-        This function adds connected WiredConnection objects to the global
-        ``CONNECTED_GOPROS`` set as a side-effect.
-    """
+    """Connect to all GoPro objects stored in the global ``GOPROS`` mapping."""
     global GOPROS, CONNECTED_GOPROS
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
