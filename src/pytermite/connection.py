@@ -19,6 +19,7 @@ import sys
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import click
 import structlog
 from open_gopro import WiredGoPro
 from open_gopro.domain.exceptions import FailedToFindDevice, ResponseTimeout
@@ -174,8 +175,13 @@ async def wait_for_user_interrupt() -> None:
     immediately (the reader is removed in the finally block). This avoids the
     problem where awaiting a blocking input call prevents task cancellation.
     """
-    await logger.ainfo("Waiting for user interrupt (press Enter)...")
     await logger.adebug("Waiting for user interrupt")
+    try:
+        click.get_current_context()
+        click.echo("Waiting for user input (press Enter)...")
+    except RuntimeError:
+        print("Waiting for user input (press Enter)...")
+
     loop = asyncio.get_running_loop()
     fd = sys.stdin.fileno()
     event = asyncio.Event()
