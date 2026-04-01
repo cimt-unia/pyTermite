@@ -1,10 +1,33 @@
 ## [unreleased]
 
+### 🚀 Features
+
+- Make CLI help coloured
+- Enable log-level configuration
+
+### 🐛 Bug Fixes
+
+- Print instead of logging interrupt message
+- Enable discovery of multiple cameras
+- Try to close connection only for connected gopros not found gopros
+
+### 🚜 Refactor
+
+- Prevent direct import of click.UsageError
+- Add commands directly to click group via decorator
+
 ### 📚 Documentation
 
 - Fix readthedocs build
 - Remove environment.yml from readthedocs post_checkout step
 - Avoid dirty Git index issues in readthedocs build
+- Build CLI reference automatically from docstrings
+- Fix docstring
+- Truncate help built from docstrings for CLI commands
+
+### 🧪 Testing
+
+- Disable usb scan test
 
 ### ⚙️ Miscellaneous Tasks
 
