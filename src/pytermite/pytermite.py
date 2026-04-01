@@ -213,6 +213,8 @@ def cli(
     If started with --interactive the CLI will stay open after running a
     subcommand and drop into the interactive REPL.
 
+    \f
+
     Parameters
     ----------
     ctx : click.Context
@@ -256,9 +258,11 @@ def cli(
     help="Time to wait for GoPro devices to be discovered (in seconds).",
     metavar="<int>",
 )
-def scan(timeout: int) -> None:
+def scan(timeout: int) -> None:  # numpydoc ignore=GL03
     """
     Discover GoPro devices via USB and mDNS.
+
+    \f
 
     Parameters
     ----------
@@ -296,9 +300,13 @@ def scan(timeout: int) -> None:
     show_envvar=True,
     metavar="<str>",
 )
-def connect(auto: bool, serials: str | None, serials_file: str | None) -> None:
+def connect(
+    auto: bool, serials: str | None, serials_file: str | None
+) -> None:  # numpydoc ignore=GL03
     """
     Connect to one or more GoPro devices using the selected discovery method.
+
+    \f
 
     Parameters
     ----------
@@ -378,9 +386,11 @@ def disconnect() -> None:
 
 @click.command()
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def record(action: str) -> None:
+def record(action: str) -> None:  # numpydoc ignore=GL03
     """
     Start or stop recording on all currently connected GoPro cameras.
+
+    \f
 
     Parameters
     ----------
