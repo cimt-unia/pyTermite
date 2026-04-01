@@ -147,16 +147,20 @@ async def connect_gopros(
             )
 
 
-async def close_gopros(gopros: dict[str, WiredConnection]) -> None:
+async def close_gopros(
+    gopros: dict[str, WiredConnection] | set[WiredConnection],
+) -> None:
     """
     Close all provided :py:class:`~WiredConnection` objects.
 
     Parameters
     ----------
-    gopros : dict[str, WiredConnection]
+    gopros : dict[str, WiredConnection] | set[WiredConnection]
         Mapping of camera keys to :py:class:`~WiredConnection` objects to close.
     """
-    for gopro in gopros.values():
+    if isinstance(gopros, dict):
+        gopros = set(gopros.values())
+    for gopro in gopros:
         await gopro.close()
         logger.debug(
             f"Disconnected from {await gopro.name}",

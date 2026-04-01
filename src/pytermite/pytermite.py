@@ -378,8 +378,8 @@ def disconnect() -> None:
     """
     log = logger.bind(command="disconnect")
     log.info("Disconnecting from all connected GoPro cameras")
-    global GOPROS
-    asyncio.run(close_gopros(gopros=GOPROS))
+    global CONNECTED_GOPROS
+    asyncio.run(close_gopros(gopros=CONNECTED_GOPROS))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -414,8 +414,8 @@ def _exit_handler() -> None:
     log = logger.bind()
     log.debug("Exiting pyTermite CLI")
     log.info("Closing all connections")
-    global GOPROS
-    asyncio.run(close_gopros(gopros=GOPROS))
+    global CONNECTED_GOPROS
+    asyncio.run(close_gopros(gopros=CONNECTED_GOPROS))
 
 
 atexit.register(_exit_handler)
