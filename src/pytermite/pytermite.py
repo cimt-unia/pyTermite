@@ -21,7 +21,6 @@ from pathlib import Path
 
 import click
 import structlog
-from click import UsageError
 from click_help_colors import HelpColorsGroup
 
 from pytermite.commands import camera_shutter
@@ -176,7 +175,7 @@ def _run_repl(ctx: click.Context) -> None:
         except SystemExit:
             # Commands may call sys.exit(); ignore and continue the REPL.
             continue
-        except UsageError:
+        except click.UsageError:
             click.echo(info_str)
             continue
         except Exception as e:
