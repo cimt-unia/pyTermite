@@ -249,36 +249,36 @@ async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
     GOPROS = set()
 
     try:
-        async with asyncio.timeout(waiting_time):
-            await wait_for_user_interrupt()
-            await scan_for_gopros_usb()
+        scan_task = asyncio.create_task(scan_for_gopros_usb())
+        wait_task = asyncio.create_task(wait_for_user_interrupt())
+        tasks = [scan_task, wait_task]
         await logger.adebug("Waiting for timeout", timeout=waiting_time)
+        for task in asyncio.as_completed(tasks, timeout=waiting_time):
+            await task
     except TimeoutError:
         await logger.ainfo("Timeout reached. Stopping...", timeout=waiting_time)
+    finally:
+        await logger.ainfo(f"Found {len(GOPROS)} devices")
     return GOPROS
 
 
-async def scan_for_gopros_usb() -> set[str]:
-    """
-    Continuously scan for GoPro devices via mDNS until interrupted.
-
-    Returns
-    -------
-    set[str]
-        Set of discovered device serial numbers (strings).
-    """
+async def scan_for_gopros_usb() -> None:
+    """Continuously scan for GoPro devices via mDNS until interrupted."""
     global GOPROS
-    try:
-        response = await find_first_ip_addr(
-            WiredConnection._MDNS_SERVICE_NAME,
-            timeout=2,
-        )
-        name = response.name.split(".")[0]
-        if name not in GOPROS:
-            await logger.ainfo(
-                f"Found new GoPro device with serial: {name}", cam_serial=name
+    while True:
+        try:
+            response = await find_first_ip_addr(
+                service="_gopro-web._tcp.local.",
+                timeout=2,
             )
-        GOPROS.add(name)
-    except FailedToFindDevice:
-        pass
-    return GOPROS
+            name = response.name.split(".")[0]
+            if name not in GOPROS:
+                await logger.ainfo(
+                    f"Found new GoPro device with serial: {name}", cam_serial=name
+                )
+                GOPROS.add(name)
+            else:
+                await logger.adebug("GoPro device already discovered. Retrying ...")
+        except FailedToFindDevice as e:
+            await logger.adebug(f"Failed to find new GoPro device: {e}")
+            continue
