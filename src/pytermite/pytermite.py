@@ -247,7 +247,7 @@ def cli(
     _run_repl(ctx)
 
 
-@click.command()
+@cli.command()
 @click.option(
     "--timeout",
     "-t",
@@ -273,7 +273,7 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
         _run_repl(click.get_current_context())
 
 
-@click.command()
+@cli.command()
 @click.option(
     "--auto",
     is_flag=True,
@@ -365,9 +365,10 @@ async def _connect_to_gopros() -> None:
     global GOPROS, CONNECTED_GOPROS
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
+        _ = GOPROS.pop(await gopro.name, None)
 
 
-@click.command()
+@cli.command()
 def disconnect() -> None:
     """
     Disconnect from all connected GoPro cameras.
@@ -383,7 +384,7 @@ def disconnect() -> None:
         _run_repl(click.get_current_context())
 
 
-@click.command()
+@cli.command()
 @click.argument("action", type=click.Choice(["start", "stop"]))
 def record(action: str) -> None:  # numpydoc ignore=GL03
     """
@@ -404,12 +405,6 @@ def record(action: str) -> None:  # numpydoc ignore=GL03
         log.error(str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
-
-
-cli.add_command(scan)
-cli.add_command(connect)
-cli.add_command(record)
-cli.add_command(disconnect)
 
 
 def _exit_handler() -> None:
