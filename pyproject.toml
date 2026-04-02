@@ -29,6 +29,7 @@ dependencies = [
     "structlog",
     "rich",
     "click",
+    "click-help-colors",
 ]
 
 [project.urls]
