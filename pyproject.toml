@@ -85,6 +85,7 @@ release = [
 tox = [
     "tox>=4.49.0",
     "tox-gh-actions",
+    "packaging>=26.0"
 ]
 dev = [
     {include-group = "test"},
