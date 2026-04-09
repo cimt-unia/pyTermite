@@ -271,8 +271,11 @@ class GoProListener(ServiceListener):
         """
         serial = name.split(".")[0]
         global GOPROS
+        if serial not in GOPROS:
+            logger.info(
+                f"Found new GoPro device with serial: {serial}", cam_serial=serial
+            )
         GOPROS.add(serial)
-        logger.info(f"Found new GoPro device with serial: {serial}", cam_serial=serial)
 
 
 async def scan_for_gopros_usb() -> None:
