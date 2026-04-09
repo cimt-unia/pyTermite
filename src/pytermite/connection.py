@@ -187,47 +187,12 @@ async def wait_for_user_interrupt() -> None:
         print("Waiting for user input (press Enter)...")
 
     loop = asyncio.get_running_loop()
-    fd = sys.stdin.fileno()
-    event = asyncio.Event()
+    reader = asyncio.StreamReader()
+    protocol = asyncio.StreamReaderProtocol(reader)
+    await loop.connect_read_pipe(lambda: protocol, sys.stdin)
 
-    def _on_input() -> None:
-        """
-        Callback run when stdin is readable (user pressed Enter).
-
-        Read and discard the line, set the global interrupt flag and the
-        event so the coroutine can continue.
-        """  # noqa: D401
-        try:
-            # consume the input line so the next read is fresh
-            # use os.read on the fd to avoid potential blocking text IO
-            try:
-                _ = os.read(fd, 4096)
-            except Exception:
-                # fallback to readline if os.read fails for any reason
-                _ = sys.stdin.readline()
-        except Exception:
-            logger.warning(
-                "Failed to read user input for interrupt signal",
-                exc_info=True,
-            )
-        event.set()
-
-    # Register the reader and await the event. Use the file descriptor
-    # (integer) which is the expected argument for add_reader/remove_reader.
-    # wrap the callback in a no-arg lambda so the add_reader signature is satisfied
-    loop.add_reader(fd, lambda: _on_input())
-    try:
-        await event.wait()
-        await logger.ainfo("User interrupt received. Stopping...")
-    finally:
-        # Ensure removal is attempted but ignore if it's already gone.
-        try:
-            loop.remove_reader(fd)
-        except Exception:
-            logger.warning(
-                "Failed to remove stdin reader for user interrupt",
-                exc_info=True,
-            )
+    _ = await reader.readline()
+    await logger.ainfo("User interrupt received. Stopping...")
 
 
 async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
