@@ -192,6 +192,8 @@ async def wait_for_user_interrupt() -> None:
     await loop.connect_read_pipe(lambda: protocol, sys.stdin)
 
     _ = await reader.readline()
+    global INTERRUPT
+    INTERRUPT = True
     await logger.ainfo("User interrupt received. Stopping...")
 
 
@@ -228,13 +230,16 @@ async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
         await logger.ainfo("Timeout reached. Stopping...", timeout=waiting_time)
     finally:
         await logger.ainfo(f"Found {len(GOPROS)} devices")
+        # Clean up
+        global INTERRUPT
+        INTERRUPT = False
     return GOPROS
 
 
 async def scan_for_gopros_usb() -> None:
     """Continuously scan for GoPro devices via mDNS until interrupted."""
-    global GOPROS
-    while True:
+    global GOPROS, INTERRUPT
+    while not INTERRUPT:
         try:
             response = await find_first_ip_addr(
                 service="_gopro-web._tcp.local.",
