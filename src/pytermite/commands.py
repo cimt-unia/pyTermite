@@ -142,7 +142,6 @@ async def camera_shutter(
 
     urls = []
     for connection in connected_gopros:
-        # Manual HTTP request as preset status is currently not working in open_gopro
         url = create_base_url(connection.identifier) + f"/shutter/{mode}"
         urls.append(url)
 
