@@ -187,11 +187,14 @@ async def wait_for_user_interrupt() -> None:
         print("Waiting for user input (press Enter)...")
 
     loop = asyncio.get_running_loop()
-    reader = asyncio.StreamReader()
-    protocol = asyncio.StreamReaderProtocol(reader)
-    await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+    if sys.platform.startswith("win32"):
+        _ = await loop.run_in_executor(None, sys.stdin.readline)
+    else:
+        reader = asyncio.StreamReader()
+        protocol = asyncio.StreamReaderProtocol(reader)
+        await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+        _ = await reader.readline()
 
-    _ = await reader.readline()
     global INTERRUPT
     INTERRUPT = True
     await logger.ainfo("User interrupt received. Stopping...")
