@@ -26,6 +26,7 @@ dependencies = [
     "open-gopro",
     "requests",
     "aiohttp",
+    "zeroconf",
     "structlog",
     "rich",
     "click",

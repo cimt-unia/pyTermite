@@ -22,8 +22,9 @@ from typing import Any
 import click
 import structlog
 from open_gopro import WiredGoPro
-from open_gopro.domain.exceptions import FailedToFindDevice, ResponseTimeout
-from open_gopro.network.wifi.mdns_scanner import find_first_ip_addr
+from open_gopro.domain.exceptions import ResponseTimeout
+from zeroconf import ServiceListener, Zeroconf
+from zeroconf.asyncio import AsyncServiceBrowser
 
 from pytermite.utils import (
     load_serial_numbers_from_json,
@@ -239,23 +240,64 @@ async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
     return GOPROS
 
 
+class GoProListener(ServiceListener):
+    """
+    Service listener for mDNS services that collects discovered GoPro serial numbers.
+
+    Implements the :py:class:`~zeroconf.ServiceListener` interface.
+    Discovered serial numbers are stored in the module-level ``GOPROS`` set
+    so that :py:func:`scan_for_gopros` can return them after the scan window
+    closes.
+    """
+
+    def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:  # noqa: ARG002
+        """
+        Handle a newly discovered GoPro mDNS service.
+
+        Called by zeroconf whenever a ``_gopro-web._tcp.local.`` service
+        advertisement is received. The camera serial number is extracted from
+        the first DNS label of *name* (the part before the first ``"."``).
+
+        Parameters
+        ----------
+        zc : Zeroconf
+            The :py:class:`~zeroconf.Zeroconf` instance that detected the
+            service.
+        type_ : str
+            The mDNS service type string (e.g. ``"_gopro-web._tcp.local."``).
+        name : str
+            Full mDNS service name. The serial number is the first label,
+            e.g. ``"C3391324497848.<type_>"``.
+        """
+        serial = name.split(".")[0]
+        global GOPROS
+        GOPROS.add(serial)
+        logger.info(f"Found new GoPro device with serial: {serial}", cam_serial=serial)
+
+
 async def scan_for_gopros_usb() -> None:
-    """Continuously scan for GoPro devices via mDNS until interrupted."""
-    global GOPROS, INTERRUPT
+    """
+    Continuously scan for GoPro devices via mDNS until interrupted.
+
+    Creates a :py:class:`~zeroconf.Zeroconf` instance, registers a
+    :py:class:`GoProListener` for the ``_gopro-web._tcp.local.`` service type,
+    and then suspends indefinitely while zeroconf delivers callbacks in the
+    background.  Discovered serials are accumulated in the module-level
+    ``GOPROS`` set.
+
+    Notes
+    -----
+    This coroutine never returns on its own — it must be cancelled externally,
+    for example by the :py:func:`scan_for_gopros` wrapper which imposes a
+    timeout and also waits for a user interrupt.
+    """
+    await logger.ainfo("Start scanning for GoPro devices via mDNS")
+    waiting_time = 3  # Time to wait between retries
+    zeroconf = Zeroconf(unicast=True)
+    listener = GoProListener()
+    global INTERRUPT
     while not INTERRUPT:
-        try:
-            response = await find_first_ip_addr(
-                service="_gopro-web._tcp.local.",
-                timeout=2,
-            )
-            name = response.name.split(".")[0]
-            if name not in GOPROS:
-                await logger.ainfo(
-                    f"Found new GoPro device with serial: {name}", cam_serial=name
-                )
-                GOPROS.add(name)
-            else:
-                await logger.adebug("GoPro device already discovered. Retrying ...")
-        except FailedToFindDevice as e:
-            await logger.adebug(f"Failed to find new GoPro device: {e}")
-            continue
+        AsyncServiceBrowser(zeroconf, "_gopro-web._tcp.local.", listener)
+        await logger.adebug(f"Waiting for {waiting_time} seconds before retry")
+        await asyncio.sleep(waiting_time)
+    await logger.adebug("Finished scanning for GoPro devices via mDNS")

@@ -1,6 +1,8 @@
 open-gopro
 requests
 aiohttp
+zeroconf
 structlog
 rich
 click
+click-help-colors
