@@ -277,7 +277,6 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
 @click.option(
     "--auto",
     is_flag=True,
-    default=True,
     show_default=True,
     help="Automatically connect to all discovered GoPro cameras.",
 )
