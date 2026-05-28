@@ -18,6 +18,7 @@ import enum
 import logging
 import shlex
 from pathlib import Path
+from multiprocessing import Process
 
 import click
 import structlog
@@ -33,6 +34,7 @@ from pytermite.connection import (
     scan_for_gopros,
 )
 from pytermite.utils import load_serial_numbers_from_json
+from pytermite.lineartimecode_two import LTC_Generator
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 GOPROS: dict[str, WiredConnection] = {}
@@ -382,10 +384,17 @@ def disconnect() -> None:
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
-
+ltc_processes = []
 @cli.command()
+@click.option(
+    "--no-timecode",
+    "-nt",
+    is_flag=True,
+    show_default=False,
+    help="Deactivate the use of linear timecode",
+)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def record(action: str) -> None:  # numpydoc ignore=GL03
+def record(action: str, no_timecode: bool) -> None:  # numpydoc ignore=GL03
     """
     Start or stop recording on all currently connected GoPro cameras.
 
@@ -399,7 +408,20 @@ def record(action: str) -> None:  # numpydoc ignore=GL03
     log = logger.bind(command="record")
     global CONNECTED_GOPROS
     try:
+        if not no_timecode:
+            #dummy config
+            ltc_config = {
+                "sample_rate": 44100,
+                "fps": 50,
+                "device": 6
+            }
+            ltc_process = Process(target=LTC_Generator, args=(ltc_config,))
+            ltc_process.start()
+            ltc_processes.append(ltc_process)
         asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
+        if action == "stop":
+            for p in ltc_processes:
+                p.terminate()
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
