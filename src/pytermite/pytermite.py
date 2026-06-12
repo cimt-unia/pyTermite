@@ -18,7 +18,7 @@ import enum
 import logging
 import shlex
 from pathlib import Path
-from multiprocessing import Process
+from multiprocessing import Process, Event
 
 import click
 import structlog
@@ -393,8 +393,11 @@ ltc_processes = []
     show_default=False,
     help="Deactivate the use of linear timecode",
 )
+@click.option('--device', default=None, type=int)
+@click.option('--fps', default=50, type=int)
+@click.option('--sample_rate', default=48000, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def record(action: str, no_timecode: bool) -> None:  # numpydoc ignore=GL03
+def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: int) -> None:  # numpydoc ignore=GL03
     """
     Start or stop recording on all currently connected GoPro cameras.
 
@@ -408,20 +411,23 @@ def record(action: str, no_timecode: bool) -> None:  # numpydoc ignore=GL03
     log = logger.bind(command="record")
     global CONNECTED_GOPROS
     try:
-        if not no_timecode:
-            #dummy config
-            ltc_config = {
-                "sample_rate": 44100,
-                "fps": 50,
-                "device": 6
-            }
-            ltc_process = Process(target=LTC_Generator, args=(ltc_config,))
-            ltc_process.start()
-            ltc_processes.append(ltc_process)
-        asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
-        if action == "stop":
-            for p in ltc_processes:
-                p.terminate()
+        if not no_timecode and (device is not None or action == "stop"):
+            if action == "start":
+                ltc_config = {
+                    "sample_rate": sample_rate,
+                    "fps": fps,
+                    "device": device
+                }
+                stop_event = Event()
+                generator = LTC_Generator(ltc_config, stop_event)
+                ltc_process = Process(target=generator.run)
+                ltc_process.start()
+                ltc_processes.append((ltc_process, stop_event))
+            elif action == "stop":
+                for p in ltc_processes:
+                    p[1].set()
+        else:
+            asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:

@@ -8,3 +8,4 @@ click
 click-help-colors
 numpy
 sounddevice
+soundfile
