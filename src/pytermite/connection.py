@@ -16,15 +16,17 @@ import asyncio
 import os
 import pathlib
 import sys
+import re
 from collections.abc import AsyncGenerator
 from typing import Any
 
 import click
 import structlog
-from open_gopro import WiredGoPro
+from open_gopro import WiredGoPro, WirelessGoPro
 from open_gopro.domain.exceptions import ResponseTimeout
 from zeroconf import ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser
+from bleak import BleakScanner
 
 from pytermite.utils import (
     load_serial_numbers_from_json,
@@ -41,7 +43,26 @@ SERIALS_PATH = os.getenv("PYTERMITE_SERIALS_PATH", None)
 SERIALS = (
     load_serial_numbers_from_json(pathlib.Path(SERIALS_PATH)) if SERIALS_PATH else {}
 )
+IP_FORMAT = r"^(?:2[0-4][0-9]|25[0-5]|1?[0-9]?[0-9])[.](?:2[0-4][0-9]|25[0-5]|1?[0-9]?[0-9])[.](?:2[0-4][0-9]|25[0-5]|1?[0-9]?[0-9])[.](?:2[0-4][0-9]|25[0-5]|1?[0-9]?[0-9])$"
 
+
+class WirelessConnection(WirelessGoPro):
+    def __init__(self, **kwargs: Any) -> None:
+        name = kwargs.pop("name", None)
+        super().__init__(**kwargs)
+        self._name: str | None = name
+        self.mac = self._identifier
+
+    @property
+    async def name(self) -> str:
+        if not self._name:
+            
+            info = serialize_dict(
+                (await self.ble_command.get_camera_info()).data.__dict__,
+            )
+            name = info.get("ap_ssid", None) or info.get("name", None)
+            self._name = name or reverse_dict(SERIALS)[self.identifier]
+        return self._name
 
 class WiredConnection(WiredGoPro):
     """
@@ -89,7 +110,8 @@ class WiredConnection(WiredGoPro):
 
 def create_wired_gopros(
     gopro_serials: dict[str, str] | set[str],
-) -> dict[str, WiredConnection]:
+) -> dict[str, WiredConnection | WirelessConnection]:
+    # TODO: this function creates Wired and(!) Wireless Connections
     """
     Create :py:class:`~WiredConnection` objects for provided serial numbers.
 
@@ -107,16 +129,22 @@ def create_wired_gopros(
     gopros = {}
     if isinstance(gopro_serials, dict):
         for cam_name, serial_number in gopro_serials.items():
-            gopros[cam_name] = WiredConnection(serial=serial_number)
+            if re.match(IP_FORMAT, serial_number):
+                gopros[cam_name] = WiredConnection(serial=serial_number)
+            else:
+                gopros[cam_name] = WirelessConnection(mac=serial_number)
     elif isinstance(gopro_serials, set):
         for serial_number in gopro_serials:
-            gopros[serial_number] = WiredConnection(serial=serial_number)
+            if re.match(IP_FORMAT, serial_number):
+                gopros[serial_number] = WiredConnection(serial=serial_number)
+            else:
+                gopros[serial_number] = WirelessConnection(mac=serial_number)
     return gopros
 
 
 async def connect_gopros(
-    gopros: dict[str, WiredConnection],
-) -> AsyncGenerator[WiredConnection, None]:
+    gopros: dict[str, WiredConnection | WirelessConnection],
+) -> AsyncGenerator[WiredConnection | WirelessConnection, None]:
     """
     Attempt to open a connection to each provided :py:class:`~WiredConnection`.
 
@@ -134,7 +162,8 @@ async def connect_gopros(
     """
     for cam_name, gopro in gopros.items():
         try:
-            await gopro.open(retries=1, timeout=1)
+            # retries=1, timeout=1
+            await gopro.open()
             await logger.ainfo(
                 f"Connected to {await gopro.name}",
                 cam_name=await gopro.name,
@@ -225,8 +254,9 @@ async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
 
     try:
         scan_task = asyncio.create_task(scan_for_gopros_usb())
+        ble_scan_taks = asyncio.create_task(scan_for_gopros_ble())
         wait_task = asyncio.create_task(wait_for_user_interrupt())
-        tasks = [scan_task, wait_task]
+        tasks = [scan_task, ble_scan_taks, wait_task]
         await logger.adebug("Waiting for timeout", timeout=waiting_time)
         for task in asyncio.as_completed(tasks, timeout=waiting_time):
             await task
@@ -304,3 +334,27 @@ async def scan_for_gopros_usb() -> None:
         await logger.adebug(f"Waiting for {waiting_time} seconds before retry")
         await asyncio.sleep(waiting_time)
     await logger.adebug("Finished scanning for GoPro devices via mDNS")
+
+async def detection_callback(device, advertisement_data):
+    friendly_name = advertisement_data.local_name
+    global GOPROS
+    if friendly_name and friendly_name.startswith("GoPro"):
+        GOPROS.add(device.address)
+        await logger.ainfo(f"Found {friendly_name} at {device.address}")
+
+async def scan_for_gopros_ble() -> None:
+    """
+    Continuously scan for GoPro devices via Bluetooth Low Energy (BLE)
+    until interrupted.
+    """
+    await logger.ainfo("Start scanning for GoPro devices via Bluetooth")
+
+    scanner = BleakScanner(detection_callback)
+    await scanner.start()
+    try:
+        while not INTERRUPT:
+            await asyncio.sleep(1)
+    finally:
+        await scanner.stop()
+
+    await logger.adebug("Finished scanning for GoPro devices via Bluetooth")
