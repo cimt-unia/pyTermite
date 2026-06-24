@@ -70,11 +70,11 @@ class LTC_Generator():
         self.total_samples = 0
         self.frame_queue = queue.Queue(maxsize=self.fps)
 
-    def play_control_sound(self, filename: str):
+    def play_control_sound(self, filename: str, amplification:float=1.0):
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         path = os.path.join(BASE_DIR, "audios", f"{filename}.wav")
         data, samplerate = sf.read(path)
-        sd.play(data, samplerate)
+        sd.play(data * amplification, samplerate)
         sd.wait()
 
     def print_allowed_fps(self) -> None:
@@ -157,4 +157,4 @@ class LTC_Generator():
                         callback=self.callback):
                 while not self.stop_event.is_set():
                     sd.sleep(1000)
-        self.play_control_sound("stop_recording")
+        self.play_control_sound("stop_recording", 2.0)

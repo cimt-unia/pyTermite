@@ -385,6 +385,7 @@ def disconnect() -> None:
         _run_repl(click.get_current_context())
 
 ltc_processes = []
+last_timecode_flag = False
 @cli.command()
 @click.option(
     "--no-timecode",
@@ -398,6 +399,7 @@ ltc_processes = []
 @click.option('--sample_rate', default=48000, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
 def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: int) -> None:  # numpydoc ignore=GL03
+    #TODO extend documentation with new options
     """
     Start or stop recording on all currently connected GoPro cameras.
 
@@ -409,7 +411,11 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
         Whether to start or stop recording.
     """
     log = logger.bind(command="record")
+    global ltc_processes
+    global last_timecode_flag
     global CONNECTED_GOPROS
+    no_timecode = last_timecode_flag if action == "stop" else no_timecode
+    last_timecode_flag = (no_timecode if device is not None else True) if action == "start" else last_timecode_flag
     try:
         if not no_timecode and (device is not None or action == "stop"):
             if action == "start":
