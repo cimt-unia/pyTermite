@@ -425,8 +425,10 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
                     "device": device
                 }
                 stop_event = Event()
-                generator = LTC_Generator(ltc_config, stop_event)
-                ltc_process = Process(target=generator.run)
+                ltc_process = Process(
+                    target=run_generator,
+                    args=(ltc_config, stop_event)
+                )
                 ltc_process.start()
                 ltc_processes.append((ltc_process, stop_event))
             elif action == "stop":
@@ -439,6 +441,9 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+def run_generator(config, stop_event):
+    generator = LTC_Generator(config, stop_event)
+    generator.run()
 
 def _exit_handler() -> None:
     """

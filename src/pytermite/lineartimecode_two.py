@@ -12,6 +12,7 @@ import sounddevice as sd
 import soundfile as sf
 import threading
 import queue
+import time
 
 position_map = {
     50: {
@@ -74,7 +75,7 @@ class LTC_Generator():
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         path = os.path.join(BASE_DIR, "audios", f"{filename}.wav")
         data, samplerate = sf.read(path)
-        sd.play(data * amplification, samplerate)
+        sd.play(data * amplification, samplerate, device=self.device)
         sd.wait()
 
     def print_allowed_fps(self) -> None:
@@ -157,4 +158,6 @@ class LTC_Generator():
                         callback=self.callback):
                 while not self.stop_event.is_set():
                     sd.sleep(1000)
+        time.sleep(1)
+        #TODO new louder recording and manuel trigger without ltc class
         self.play_control_sound("stop_recording", 2.0)
