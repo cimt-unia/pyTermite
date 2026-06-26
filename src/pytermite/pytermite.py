@@ -17,6 +17,7 @@ import atexit
 import enum
 import logging
 import shlex
+import os
 from pathlib import Path
 
 import click
@@ -27,16 +28,23 @@ from pytermite.commands import camera_shutter
 from pytermite.config import LOG_LEVEL
 from pytermite.connection import (
     WiredConnection,
+    WirelessConnection,
     close_gopros,
     connect_gopros,
+    connect_gopros_wireless,
     create_wired_gopros,
+    create_wireless_gopros,
     scan_for_gopros,
+    scan_for_gopros_wireless,
 )
 from pytermite.utils import load_serial_numbers_from_json
 
+os.environ["LANG"] = "en_US"
+
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
-GOPROS: dict[str, WiredConnection] = {}
-CONNECTED_GOPROS: set[WiredConnection] = set()
+GOPROS: dict[(str, str), WiredConnection] = {}
+BLES: dict[str, WirelessConnection] = {}
+CONNECTED_GOPROS: set[WiredConnection | WirelessConnection] = set()
 KEEP_OPEN = False
 
 
@@ -269,6 +277,7 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
         How long to wait for discovery in seconds.
     """
     asyncio.run(scan_for_gopros(waiting_time=timeout))
+    asyncio.run(scan_for_gopros_wireless(waiting_time=timeout))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -316,13 +325,18 @@ def connect(
         Path to a JSON file containing serials.
     """
     global GOPROS
+    global BLES
     log = logger.bind(command="connect")
     serial_numbers: dict[str, str] | set[str] | None = None
+    ble_names: dict[str, str] | set[str] | None = None
     if auto:
         log = log.bind(option="auto")
         if len(GOPROS) == 0:
             log.info("Searching for connected GoPro cameras via USB connection...")
             serial_numbers = asyncio.run(scan_for_gopros(waiting_time=5))
+        if len(BLES) == 0:
+            log.info("Searching for connected GoPro cameras via BLE connection...")
+            ble_names = asyncio.run(scan_for_gopros_wireless(waiting_time=10))
         else:
             log.info("Using previously discovered GoPro cameras to connect...")
             pass
@@ -344,12 +358,25 @@ def connect(
         log.debug("Serial numbers to connect to: %s", serial_numbers)
     else:
         serial_numbers = set()
+        # for gp in (val for (key1, key2), val in GOPROS.items() if key2 == "target_value"):
         for gp in GOPROS.values():
             if isinstance(gp, WiredConnection):
                 if gp.serial is not None:
                     serial_numbers.add(gp.serial)
         log.debug("Serial numbers to connect to: %s", serial_numbers)
+
+    if ble_names:
+        log.debug("BLE names to connect to: %s", ble_names)
+    else:
+        ble_names = set()
+        for gp in BLES.values():
+            if isinstance(gp, WirelessConnection):
+                if gp.identifier is not None:
+                    ble_names.add(gp.identifier)
+
+    # TODO: add wireless gopros
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
+    BLES = create_wireless_gopros(gopro_names=ble_names)
     asyncio.run(_connect_to_gopros())
     log.info("Connected to all requested GoPro cameras")
     # When running inside the interactive shell the process will stay alive
@@ -361,10 +388,13 @@ def connect(
 
 async def _connect_to_gopros() -> None:
     """Connect to all GoPro objects stored in the global ``GOPROS`` mapping."""
-    global GOPROS, CONNECTED_GOPROS
+    global GOPROS, BLES, CONNECTED_GOPROS
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
         _ = GOPROS.pop(await gopro.name, None)
+    async for gopro in connect_gopros_wireless(gopros=BLES):
+        CONNECTED_GOPROS.add(gopro)
+        _ = BLES.pop(gopro.identifier, None)
 
 
 @cli.command()

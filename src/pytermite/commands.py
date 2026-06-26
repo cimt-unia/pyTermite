@@ -17,8 +17,9 @@ import asyncio
 import aiohttp
 import requests
 import structlog
+import ssl
 
-from pytermite.connection import WiredConnection
+from pytermite.connection import WiredConnection, WirelessConnection
 from pytermite.utils import create_base_url, serialize_dict
 
 logger = structlog.get_logger()
@@ -113,7 +114,7 @@ async def get_preset_status(
 
 
 async def camera_shutter(
-    connected_gopros: set[WiredConnection],
+    connected_gopros: set[WiredConnection | WirelessConnection],
     mode: str = "start",
 ) -> None:
     """
@@ -140,16 +141,23 @@ async def camera_shutter(
         )
         return
 
-    urls = []
-    for connection in connected_gopros:
-        url = create_base_url(connection.identifier) + f"/shutter/{mode}"
-        urls.append(url)
-
-    if mode == "start":
-        logger.info("Starting recording on all connected GoPro cameras")
-    else:
-        logger.info("Stopping recording on all connected GoPro cameras")
-
     async with aiohttp.ClientSession() as session:
-        tasks = [session.get(url) for url in urls]
+        tasks = []
+        
+        for connection in connected_gopros:
+            if isinstance(connection, WirelessConnection):
+                url = f"https://{connection.ip_address}:8080/gopro/camera/shutter/{mode}"
+                
+                ssl_context = ssl.create_default_context()
+                
+                cert_string = connection.cohn.credentials.certificate
+                ssl_context.load_verify_locations(cadata=cert_string)
+                
+                tasks.append(session.get(url, ssl=ssl_context))
+                
+            else:
+                url = create_base_url(connection.identifier) + f"/shutter/{mode}"
+                tasks.append(session.get(url))
+
+        # Execute all requests concurrently
         await asyncio.gather(*tasks)

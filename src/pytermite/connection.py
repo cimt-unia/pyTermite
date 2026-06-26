@@ -16,15 +16,17 @@ import asyncio
 import os
 import pathlib
 import sys
+import re
 from collections.abc import AsyncGenerator
 from typing import Any
 
 import click
 import structlog
-from open_gopro import WiredGoPro
+from open_gopro import WiredGoPro, WirelessGoPro
 from open_gopro.domain.exceptions import ResponseTimeout
 from zeroconf import ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser
+from bleak import BleakScanner
 
 from pytermite.utils import (
     load_serial_numbers_from_json,
@@ -35,6 +37,7 @@ from pytermite.utils import (
 logger = structlog.get_logger()
 
 GOPROS: set[str] = set()
+BLES: set[str] = set()
 INTERRUPT = False
 # Get serial_numbers path from environment variable
 SERIALS_PATH = os.getenv("PYTERMITE_SERIALS_PATH", None)
@@ -87,6 +90,22 @@ class WiredConnection(WiredGoPro):
         return self._name
 
 
+class WirelessConnection(WirelessGoPro):
+    """
+    Subclass of ``WirelessGoPro`` providing a cached human-readable name.
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        target = kwargs.pop("target", None)
+        super().__init__(**kwargs)
+        self._target: str | None = target
+        # self.identifier = self._identifier
+
+    # @property
+    # async def identifier(self) -> str:
+
+    #     return self.identifier
+
 def create_wired_gopros(
     gopro_serials: dict[str, str] | set[str],
 ) -> dict[str, WiredConnection]:
@@ -111,6 +130,22 @@ def create_wired_gopros(
     elif isinstance(gopro_serials, set):
         for serial_number in gopro_serials:
             gopros[serial_number] = WiredConnection(serial=serial_number)
+    return gopros
+
+
+def create_wireless_gopros(
+        gopro_names: dict[str, str] | set[str],
+) -> dict[str, WirelessConnection]:
+    """
+    Create :py:class:`~WirelessConnection` objects for provided names.
+    """
+    gopros = {}
+    if isinstance(gopro_names, dict):
+        for cam_name, identifier in gopro_names.items():
+            gopros[cam_name] = WirelessConnection(target=identifier, interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN})
+    elif isinstance(gopro_names, set):
+        for identifier in gopro_names:
+            gopros[identifier] = WirelessConnection(target=identifier, interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN})
     return gopros
 
 
@@ -145,6 +180,36 @@ async def connect_gopros(
             await logger.aerror(
                 f"Failed to connect to GoPro {cam_name} with serial {gopro.identifier}",
                 error=str(e),
+            )
+
+
+async def connect_gopros_wireless(
+    gopros: dict[str, WirelessConnection],
+) -> AsyncGenerator[WirelessConnection, None]:
+    """
+    Attempt to open a connect to each provided :py:class:`~WirelessConnection`.
+    """
+
+    for cam_name, gopro in gopros.items():
+        try:
+            await gopro.open(retries=5, timeout=10)
+            await logger.ainfo(
+                f"Connected to {gopro.identifier}",
+                cam_name=gopro.identifier,
+            )
+            await logger.ainfo(f"Provisioning for COHN", cam_name=gopro.identifier)
+            # if await gopro.cohn.is_configured:
+            if False:
+                await logger.ainfo(f"COHN already configured", cam_name=gopro.identifier,)
+            else:
+                await gopro.access_point.connect("Nothing", "smartwatch3")
+                await gopro.cohn.configure(force_reprovision=False)
+                await logger.ainfo(f"COHN provisioned", cam_name=gopro.identifier)
+            yield gopro
+        except ResponseTimeout as e:
+            await logger.aerror(
+                f"Failed to connect to GoPro {cam_name}",
+                error=str(e)
             )
 
 
@@ -188,7 +253,8 @@ async def wait_for_user_interrupt() -> None:
         print("Waiting for user input (press Enter)...")
 
     loop = asyncio.get_running_loop()
-    if sys.platform.startswith("win32"):
+    # if sys.platform.startswith("win32"):
+    if True:
         _ = await loop.run_in_executor(None, sys.stdin.readline)
     else:
         reader = asyncio.StreamReader()
@@ -239,6 +305,31 @@ async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
         INTERRUPT = False
     return GOPROS
 
+
+async def scan_for_gopros_wireless(waiting_time: int = 20) -> set[str]:
+    """
+    Scan for BLE devices and retrieve identifier.
+
+    """
+    global BLES
+    BLES = set()
+
+    try:
+        scan_task = asyncio.create_task(scan_for_gopros_ble())
+        wait_task = asyncio.create_task(wait_for_user_interrupt())
+        tasks = [scan_task, wait_task]
+        await logger.adebug("Waiting for timeout", timeout=waiting_time)
+        for task in asyncio.as_completed(tasks, timeout=waiting_time):
+            await task
+    except TimeoutError:
+        await logger.ainfo("Timeout reached. Stopping...", timeout=waiting_time)
+    finally:
+        await logger.ainfo(f"Found {len(BLES)} devices")
+        await logger.ainfo(f"Found: {BLES}")
+
+        global INTERRUPT
+        INTERRUPT = False
+    return BLES
 
 class GoProListener(ServiceListener):
     """
@@ -304,3 +395,23 @@ async def scan_for_gopros_usb() -> None:
         await logger.adebug(f"Waiting for {waiting_time} seconds before retry")
         await asyncio.sleep(waiting_time)
     await logger.adebug("Finished scanning for GoPro devices via mDNS")
+
+
+async def scan_for_gopros_ble(waiting_time: int = 20) -> set[str]:
+    """
+    Scan for BLE devices and retrieve identfier.
+    """
+    token = re.compile(r"GoPro [A-Z0-9]{4}")
+
+    await logger.ainfo("Start scanning for GoPro BLE devices")
+    waiting_time = 3
+    global BLES
+    global INTERRUPT
+    while not INTERRUPT:
+        devices = await BleakScanner.discover()
+        matched_devices = [device for device in devices if device.name and token.match(device.name)]
+        for d in matched_devices:
+            BLES.add(d)
+        await logger.adebug(f"Waiting for {waiting_time} seconds before retry")
+        await asyncio.sleep(waiting_time)
+    await logger.adebug("Finished scanning for GoPro BLE devices")
