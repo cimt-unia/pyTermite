@@ -19,7 +19,6 @@ import logging
 import shlex
 import os
 from pathlib import Path
-from multiprocessing import Process, Event
 
 import click
 import structlog
@@ -29,7 +28,7 @@ from pytermite.commands import camera_shutter
 from pytermite.config import LOG_LEVEL
 from pytermite.connection import (
     WiredConnection,
-    WirelessConnection
+    WirelessConnection,
     close_gopros,
     connect_gopros,
     connect_gopros_wireless,
@@ -39,17 +38,13 @@ from pytermite.connection import (
     scan_for_gopros_wireless,
 )
 from pytermite.utils import load_serial_numbers_from_json
-from pytermite.lineartimecode_two import LTC_Generator
-from pytermite.fetch_data import fetch_filenames, fetch_recorded
 
 os.environ["LANG"] = "en_US"
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
-
 GOPROS: dict[(str, str), WiredConnection] = {}
 BLES: dict[str, WirelessConnection] = {}
 CONNECTED_GOPROS: set[WiredConnection | WirelessConnection] = set()
-CONNECTED_SERIALS: dict[str, str] | set[str] | None = None
 KEEP_OPEN = False
 
 
@@ -331,8 +326,6 @@ def connect(
     """
     global GOPROS
     global BLES
-    global CONNECTED_SERIALS
-    
     log = logger.bind(command="connect")
     serial_numbers: dict[str, str] | set[str] | None = None
     ble_names: dict[str, str] | set[str] | None = None
@@ -382,8 +375,6 @@ def connect(
                     ble_names.add(gp.identifier)
 
     # TODO: add wireless gopros
-
-    CONNECTED_SERIALS = serial_numbers
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
     BLES = create_wireless_gopros(gopro_names=ble_names)
     asyncio.run(_connect_to_gopros())
@@ -417,28 +408,14 @@ def disconnect() -> None:
     log = logger.bind(command="disconnect")
     log.info("Disconnecting from all connected GoPro cameras")
     global CONNECTED_GOPROS
-    global CONNECTED_SERIALS
     asyncio.run(close_gopros(gopros=CONNECTED_GOPROS))
-    CONNECTED_SERIALS = None
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
-ltc_processes = []
-last_timecode_flag = False
+
 @cli.command()
-@click.option(
-    "--no-timecode",
-    "-nt",
-    is_flag=True,
-    show_default=False,
-    help="Deactivate the use of linear timecode",
-)
-@click.option('--device', default=None, type=int)
-@click.option('--fps', default=50, type=int)
-@click.option('--sample_rate', default=48000, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: int) -> None:  # numpydoc ignore=GL03
-    #TODO extend documentation with new options
+def record(action: str) -> None:  # numpydoc ignore=GL03
     """
     Start or stop recording on all currently connected GoPro cameras.
 
@@ -450,56 +427,14 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
         Whether to start or stop recording.
     """
     log = logger.bind(command="record")
-    global ltc_processes
-    global last_timecode_flag
     global CONNECTED_GOPROS
-    global CONNECTED_SERIALS
-    no_timecode = last_timecode_flag if action == "stop" else no_timecode
-    last_timecode_flag = (no_timecode if device is not None else True) if action == "start" else last_timecode_flag
     try:
-        if not no_timecode and (device is not None or action == "stop"):
-            if action == "start":
-                ltc_config = {
-                    "sample_rate": sample_rate,
-                    "fps": fps,
-                    "device": device
-                }
-                stop_event = Event()
-                ltc_process = Process(
-                    target=_run_generator,
-                    args=(ltc_config, stop_event)
-                )
-                ltc_process.start()
-                ltc_processes.append((ltc_process, stop_event))
-            elif action == "stop":
-                for p in ltc_processes:
-                    p[1].set()
-        else:
-            asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
-        if action == "stop":
-            fetch_process = Process(target=fetch_filenames, args=(CONNECTED_SERIALS, CONNECTED_GOPROS, log), daemon=False)
-            fetch_process.start()
+        asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
-@cli.command()
-@click.option('--save_path', default=None, type=click.Path())
-def fetchdata(save_path: str|None) -> None:
-    global CONNECTED_SERIALS
-    log = logger.bind(command="fetch_data")
-    try:
-        fetch_process = Process(target=fetch_recorded, args=(CONNECTED_SERIALS, save_path, log), daemon=False)
-        fetch_process.start()
-    except RuntimeError as e:
-        log.error(str(e))
-    if KEEP_OPEN:
-        _run_repl(click.get_current_context())
-
-def _run_generator(config, stop_event):
-    generator = LTC_Generator(config, stop_event)
-    generator.run()
 
 def _exit_handler() -> None:
     """
