@@ -28,6 +28,7 @@ from pytermite.commands import camera_shutter
 from pytermite.config import LOG_LEVEL
 from pytermite.connection import (
     WiredConnection,
+    WirelessConnection
     close_gopros,
     connect_gopros,
     create_wired_gopros,
@@ -39,7 +40,7 @@ from pytermite.fetch_data import fetch_filenames, fetch_recorded
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 GOPROS: dict[str, WiredConnection] = {}
-CONNECTED_GOPROS: set[WiredConnection] = set()
+CONNECTED_GOPROS: set[WiredConnection | WirelessConnection] = set()
 CONNECTED_SERIALS: dict[str, str] | set[str] | None = None
 KEEP_OPEN = False
 
@@ -444,7 +445,7 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
         else:
             asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
         if action == "stop":
-            fetch_process = Process(target=fetch_filenames, args=(CONNECTED_SERIALS, log), daemon=False)
+            fetch_process = Process(target=fetch_filenames, args=(CONNECTED_SERIALS, CONNECTED_GOPROS, log), daemon=False)
             fetch_process.start()
     except RuntimeError as e:
         log.error(str(e))

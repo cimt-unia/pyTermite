@@ -5,36 +5,45 @@ import time
 import os
 
 from pytermite.connection import (
-    WiredConnection
+    WiredConnection,
+    WirelessConnection
 )
 
 tmp_file = "tmp_recordings.json"
 save_path = Path(__file__).parent / "tmp"
 
 def fetch_filenames(serials: dict[str, str] | set[str] | None = None,
+                    gopros: set[WiredConnection | WirelessConnection]  | None = None
                     logger = None
     ):
     logger_available = logger is not None
-    if (serials is None or len(serials) < 1):
+    if (serials is None or len(serials) < 1) and (gopros is None or len(gopros) < 1):
         if logger_available:
             logger.warning("No connected GoPros found! Recorded data paths could not be saved")
         return
 
     saved_entries = _get_saved_entries()
 
+    urls = []
+    for connection in gopros:
+        if not isinstance(connection, WirelessConnection): continue
+        urls.append(f"https://{connection.ip.address}:8080/gopro/media/last_captured", connection._identifier)
+    
     for serial_nr in serials:
         ip = f"172.2{serial_nr[-3]}.1{serial_nr[-2:]}.51:8080"
-        url_last = f"http://{ip}/gopro/media/last_captured"
+        urls.append(f"http://{ip}/gopro/media/last_captured", serial_nr[-4:])
+        
+    for url_last, cam_id in urls:    
         response_last = requests.request("GET", url_last)
         if response_last.status_code == 200:
-            if not serial_nr[-4:] in saved_entries:
-                saved_entries[serial_nr[-4:]] = [response_last.json()]
+            if not cam_id in saved_entries:
+                saved_entries[cam_id] = [response_last.json()]
             else:
-                saved_entries[serial_nr[-4:]].append(response_last.json())
+                saved_entries[cam_id].append(response_last.json())
 
             _save_entries(saved_entries)
         else:
-            logger.warning(f"Last captured of {serial_nr[-4:]} could not be saved!")
+            logger.warning(f"Last captured of {cam_id} could not be saved!")
 
 def fetch_recorded( serials: dict[str, str] | set[str] | None = None,
                     save_path: str|None = None, 
@@ -116,6 +125,7 @@ def _get_saved_entries() -> dict:
 def _save_entries(saved_entries:dict) -> None:
     global tmp_file
     global save_path
+    save_path.mkdir(parents=True, exist_ok=True)
     with open(save_path / tmp_file, "w") as f:
         json.dump(saved_entries, f)
         
