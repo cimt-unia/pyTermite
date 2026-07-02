@@ -146,14 +146,18 @@ async def camera_shutter(
         
         for connection in connected_gopros:
             if isinstance(connection, WirelessConnection):
-                url = f"https://{connection.ip_address}:8080/gopro/camera/shutter/{mode}"
+                url = f"https://{connection.ip_address}/gopro/camera/shutter/{mode}"
                 
                 ssl_context = ssl.create_default_context()
                 
                 cert_string = connection.cohn.credentials.certificate
                 ssl_context.load_verify_locations(cadata=cert_string)
                 
-                tasks.append(session.get(url, ssl=ssl_context))
+                auth = aiohttp.BasicAuth(
+                    connection.cohn.credentials.username,
+                    connection.cohn.credentials.password,
+                )
+                tasks.append(session.get(url, ssl=ssl_context, auth=auth))
                 
             else:
                 url = create_base_url(connection.identifier) + f"/shutter/{mode}"

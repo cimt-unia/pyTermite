@@ -26,6 +26,7 @@ from open_gopro import WiredGoPro, WirelessGoPro
 from open_gopro.domain.exceptions import ResponseTimeout
 from zeroconf import ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser
+from open_gopro.models.proto import EnumCOHNNetworkState, EnumCOHNStatus
 from bleak import BleakScanner
 
 from pytermite.utils import (
@@ -181,7 +182,9 @@ async def connect_gopros(
                 f"Failed to connect to GoPro {cam_name} with serial {gopro.identifier}",
                 error=str(e),
             )
-
+# import logging
+# logging.getLogger("open_gopro").setLevel(logging.DEBUG)
+# logging.getLogger("open_gopro").addHandler(logging.StreamHandler())
 
 async def connect_gopros_wireless(
     gopros: dict[str, WirelessConnection],
@@ -197,14 +200,24 @@ async def connect_gopros_wireless(
                 f"Connected to {gopro.identifier}",
                 cam_name=gopro.identifier,
             )
-            await logger.ainfo(f"Provisioning for COHN", cam_name=gopro.identifier)
-            # if await gopro.cohn.is_configured:
-            if False:
-                await logger.ainfo(f"COHN already configured", cam_name=gopro.identifier,)
+            status = (await gopro.ble_command.cohn_get_status(register=True)).data
+            await logger.ainfo(f"Initial COHN status: {status}", cam_name=gopro.identifier)
+
+            if status.state in (
+                EnumCOHNNetworkState.COHN_STATE_ConnectingToNetwork,
+                EnumCOHNNetworkState.COHN_STATE_NetworkConnected,
+            ):
+                await logger.ainfo("Camera already connecting/connected, skipping new AP request", cam_name=gopro.identifier)
             else:
-                await gopro.access_point.connect("Nothing", "smartwatch34")
-                await gopro.cohn.configure(force_reprovision=False)
-                await logger.ainfo(f"COHN provisioned", cam_name=gopro.identifier)
+                await logger.ainfo("Connecting to AP...")
+                await gopro.ble_command.request_wifi_connect_new(ssid="Nothing", password="smartwatch34")
+
+            await logger.ainfo("Configure COHN...")
+            # Don't force reprovision if we're just waiting on a connection that's already underway
+            cohn_result = await gopro.cohn.configure(
+                force_reprovision=(status.status == EnumCOHNStatus.COHN_UNPROVISIONED),
+                timeout=20,  # first attempt showed >60s is realistic here
+            )
             yield gopro
         except ResponseTimeout as e:
             await logger.aerror(
