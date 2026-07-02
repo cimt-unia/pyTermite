@@ -35,10 +35,12 @@ from pytermite.connection import (
 )
 from pytermite.utils import load_serial_numbers_from_json
 from pytermite.lineartimecode_two import LTC_Generator
+from pytermite.preview_stream import PreviewStream
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 GOPROS: dict[str, WiredConnection] = {}
 CONNECTED_GOPROS: set[WiredConnection] = set()
+CONNECTED_SERIALS: dict[str, str] | set[str] | None = None
 KEEP_OPEN = False
 
 
@@ -318,6 +320,7 @@ def connect(
         Path to a JSON file containing serials.
     """
     global GOPROS
+    global CONNECTED_SERIALS
     log = logger.bind(command="connect")
     serial_numbers: dict[str, str] | set[str] | None = None
     if auto:
@@ -352,6 +355,7 @@ def connect(
                     serial_numbers.add(gp.serial)
         log.debug("Serial numbers to connect to: %s", serial_numbers)
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
+    CONNECTED_SERIALS = serial_numbers
     asyncio.run(_connect_to_gopros())
     log.info("Connected to all requested GoPro cameras")
     # When running inside the interactive shell the process will stay alive
@@ -380,7 +384,9 @@ def disconnect() -> None:
     log = logger.bind(command="disconnect")
     log.info("Disconnecting from all connected GoPro cameras")
     global CONNECTED_GOPROS
+    global CONNECTED_SERIALS
     asyncio.run(close_gopros(gopros=CONNECTED_GOPROS))
+    CONNECTED_SERIALS = None
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -440,6 +446,40 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
         log.error(str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
+
+preview_processes = []
+@cli.command()
+@click.argument("action", type=click.Choice(["start", "stop"]))
+def preview_stream(action: str) -> None:
+    log = logger.bind(command="preview_stream")
+    global preview_processes
+    try:
+        if action == "start":
+            stop_event = asyncio.Event()
+            preview_process = Process(
+                target=run_preview,
+                 args=(CONNECTED_SERIALS, stop_event, log)
+            )
+            preview_processes.append((preview_process, stop_event))
+        elif action == "stop":
+            delete_list = []
+            for idx, p in enumerate(preview_processes):
+                p[1].set()
+                if not p[0].is_alive():
+                    delete_list.append(idx)
+            for i in sorted(delete_list, reverse=True):
+                del preview_processes[i]
+
+                
+
+    except RuntimeError as e:
+        log.error(str(e))
+    if KEEP_OPEN:
+        _run_repl(click.get_current_context())
+
+def run_preview(serials, stop_event, logger):
+    stream = PreviewStream(serials, stop_event, logger)
+    stream.preview_start()
 
 def run_generator(config, stop_event):
     generator = LTC_Generator(config, stop_event)
