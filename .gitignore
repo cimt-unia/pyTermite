@@ -209,6 +209,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.venv2/
 
 # Spyder project settings
 .spyderproject
@@ -244,3 +245,4 @@ cython_debug/
 # Custom
 config/
 output/
+myenv

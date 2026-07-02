@@ -6,3 +6,6 @@ structlog
 rich
 click
 click-help-colors
+numpy
+sounddevice
+soundfile
