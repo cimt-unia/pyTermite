@@ -202,7 +202,7 @@ async def connect_gopros_wireless(
             if False:
                 await logger.ainfo(f"COHN already configured", cam_name=gopro.identifier,)
             else:
-                await gopro.access_point.connect("Nothing", "smartwatch3")
+                await gopro.access_point.connect("Nothing", "smartwatch34")
                 await gopro.cohn.configure(force_reprovision=False)
                 await logger.ainfo(f"COHN provisioned", cam_name=gopro.identifier)
             yield gopro
