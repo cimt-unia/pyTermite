@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import time
 import os
+import tempfile
 
 from pytermite.connection import (
     WiredConnection,
@@ -54,9 +55,10 @@ def fetch_filenames(serials: dict[str, str] | set[str] | None = None,
     
     if serials_valid:
         for serial_nr in serials:
+            cam_id = serial_nr[-4:]
             ip = f"172.2{serial_nr[-3]}.1{serial_nr[-2:]}.51:8080"
             url_last = f"http://{ip}/gopro/media/last_captured"    
-                response_last = requests.request("GET", url_last)
+            response_last = requests.request("GET", url_last)
             if response_last.status_code == 200:
                 if not cam_id in saved_entries:
                     saved_entries[cam_id] = [response_last.json()]

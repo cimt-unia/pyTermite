@@ -27,13 +27,17 @@ from click_help_colors import HelpColorsGroup
 from pytermite.commands import camera_shutter
 from pytermite.config import LOG_LEVEL
 from pytermite.connection import (
+    COHN_DB,
     WiredConnection,
     WirelessConnection,
     close_gopros,
     connect_gopros,
     connect_gopros_wireless,
+    connect_gopros_cohn,
     create_wired_gopros,
     create_wireless_gopros,
+    create_cohn_gopros,
+    load_cohn_identifiers,
     scan_for_gopros,
     scan_for_gopros_wireless,
 )
@@ -46,6 +50,7 @@ os.environ["LANG"] = "en_US"
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 GOPROS: dict[(str, str), WiredConnection] = {}
 BLES: dict[str, WirelessConnection] = {}
+COHN: dict[str, WirelessConnection] = {}
 CONNECTED_GOPROS: set[WiredConnection | WirelessConnection] = set()
 CONNECTED_SERIALS: dict[str, str] | set[str] | None = None
 KEEP_OPEN = False
@@ -311,7 +316,7 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
     metavar="<str>",
 )
 def connect(
-    auto: bool, serials: str | None, serials_file: str | None
+    auto: bool, serials: str | None, serials_file: str | None, cohn_db: str = COHN_DB
 ) -> None:  # numpydoc ignore=GL03
     """
     Connect to one or more GoPro devices using the selected discovery method.
@@ -329,18 +334,38 @@ def connect(
     """
     global GOPROS
     global BLES
+    global COHN
     global CONNECTED_SERIALS
     log = logger.bind(command="connect")
     serial_numbers: dict[str, str] | set[str] | None = None
     ble_names: dict[str, str] | set[str] | None = None
+    cohn_identifiers: set[str] = set()
+    cohn_db = Path(cohn_db)
     if auto:
         log = log.bind(option="auto")
         if len(GOPROS) == 0:
             log.info("Searching for connected GoPro cameras via USB connection...")
             serial_numbers = asyncio.run(scan_for_gopros(waiting_time=5))
+        cohn_identifiers = load_cohn_identifiers(cohn_db)
+        
+        if cohn_identifiers:
+            log.info(
+                "Found cameras already provisioned for COHN; connecting "
+                "directly without BLE...",
+                count=len(cohn_identifiers),
+                identifiers=sorted(cohn_identifiers),
+            )
         if len(BLES) == 0:
-            log.info("Searching for connected GoPro cameras via BLE connection...")
-            ble_names = asyncio.run(scan_for_gopros_wireless(waiting_time=10))
+            log.info("Searching for additional GoPro cameras via BLE connection...")
+            discovered_ble = asyncio.run(scan_for_gopros_wireless(waiting_time=10))
+            ble_names = discovered_ble - cohn_identifiers
+            skipped = discovered_ble & cohn_identifiers
+            if skipped:
+                log.info(
+                    "Skipping BLE provisioning for cameras already "
+                    "provisioned for COHN",
+                    identifiers=sorted(skipped),
+                )
         else:
             log.info("Using previously discovered GoPro cameras to connect...")
             pass
@@ -378,10 +403,14 @@ def connect(
                 if gp.identifier is not None:
                     ble_names.add(gp.identifier)
 
+    if cohn_identifiers:
+        log.info("COHN identifiers to connect to: %s", cohn_identifiers)
+
     # TODO: add wireless gopros
     CONNECTED_SERIALS = serial_numbers
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
     BLES = create_wireless_gopros(gopro_names=ble_names)
+    COHN = create_cohn_gopros(identifiers=cohn_identifiers, cohn_db_path=cohn_db)
     asyncio.run(_connect_to_gopros())
     log.info("Connected to all requested GoPro cameras")
     # When running inside the interactive shell the process will stay alive
@@ -393,7 +422,10 @@ def connect(
 
 async def _connect_to_gopros() -> None:
     """Connect to all GoPro objects stored in the global ``GOPROS`` mapping."""
-    global GOPROS, BLES, CONNECTED_GOPROS
+    global GOPROS, BLES, COHN, CONNECTED_GOPROS
+    async for gopro in connect_gopros_cohn(gopros=COHN):
+        CONNECTED_GOPROS.add(gopro)
+        _ = COHN.pop(gopro.identifier, None)
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
         _ = GOPROS.pop(await gopro.name, None)
@@ -471,8 +503,7 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
             elif action == "stop":
                 for p in ltc_processes:
                     p[1].set()
-        else:
-            asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
+        asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
         if action == "stop":
             fetch_process = Process(target=fetch_filenames, args=(CONNECTED_SERIALS, CONNECTED_GOPROS, log), daemon=False)
             fetch_process.start()

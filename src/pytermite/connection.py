@@ -18,6 +18,7 @@ import pathlib
 import sys
 import re
 import socket
+import json
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -46,7 +47,7 @@ SERIALS_PATH = os.getenv("PYTERMITE_SERIALS_PATH", None)
 SERIALS = (
     load_serial_numbers_from_json(pathlib.Path(SERIALS_PATH)) if SERIALS_PATH else {}
 )
-
+COHN_DB = pathlib.Path(os.getenv("PYTERMITE_COHN_DB_PATH", "cohn_db.json"))
 
 class WiredConnection(WiredGoPro):
     """
@@ -99,7 +100,7 @@ class WirelessConnection(WirelessGoPro):
 
     def __init__(self, **kwargs: Any) -> None:
         target = kwargs.pop("target", None)
-        super().__init__(**kwargs)
+        super().__init__(target=target, **kwargs)
         self._target: str | None = target
         # self.identifier = self._identifier
 
@@ -148,6 +149,82 @@ def create_wireless_gopros(
     elif isinstance(gopro_names, set):
         for identifier in gopro_names:
             gopros[identifier] = WirelessConnection(target=identifier, interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN})
+    return gopros
+
+def load_cohn_identifiers(cohn_db_path: pathlib.Path | str = COHN_DB) -> set[str]:
+    """
+    Return the set of camera identifiers already provisioned for COHN.
+ 
+    Reads the TinyDB-backed COHN credential store (as produced by
+    ``open_gopro``'s ``cohn.configure()``) and collects the ``serial`` field
+    of every entry, i.e. each camera's short identifier (the last 4 digits
+    of its full serial number, e.g. ``"8157"``).
+ 
+    Parameters
+    ----------
+    cohn_db_path : pathlib.Path | str, optional
+        Path to the COHN credential database (JSON file written by TinyDB).
+        Defaults to :py:data:`COHN_DB_PATH`.
+ 
+    Returns
+    -------
+    set[str]
+        Identifiers of cameras already provisioned for COHN. Empty if the
+        database file does not exist or cannot be parsed.
+    """
+    cohn_db_path = pathlib.Path(cohn_db_path)
+    if not cohn_db_path.exists():
+        return set()
+    try:
+        with cohn_db_path.open("r") as f:
+            raw = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning(
+            "Failed to read COHN database", path=str(cohn_db_path), error=str(e)
+        )
+        return set()
+    table = raw.get("_default", {})
+    return {
+        entry["serial"]
+        for entry in table.values()
+        if isinstance(entry, dict) and "serial" in entry
+    }
+ 
+ 
+def create_cohn_gopros(
+    identifiers: set[str],
+    cohn_db_path: pathlib.Path | str = COHN_DB,
+) -> dict[str, WirelessConnection]:
+    """
+    Create COHN-only :py:class:`~WirelessConnection` objects for provided identifiers.
+ 
+    Unlike :py:func:`create_wireless_gopros`, the returned connections only
+    use the ``COHN`` interface: no BLE connection or provisioning will be
+    attempted. This is appropriate for cameras that already have credentials
+    stored in *cohn_db_path*.
+ 
+    Parameters
+    ----------
+    identifiers : set[str]
+        Camera identifiers (last 4 digits of serial number) to create
+        connections for.
+    cohn_db_path : pathlib.Path | str, optional
+        Path to the COHN credential database to read credentials from.
+        Defaults to :py:data:`COHN_DB_PATH`.
+ 
+    Returns
+    -------
+    dict[str, WirelessConnection]
+        Mapping from identifier to a COHN-only :py:class:`~WirelessConnection`.
+    """
+    cohn_db_path = pathlib.Path(cohn_db_path)
+    gopros = {}
+    for identifier in identifiers:
+        gopros[identifier] = WirelessConnection(
+            target=identifier,
+            interfaces={WirelessGoPro.Interface.COHN},
+            cohn_db=cohn_db_path,
+        )
     return gopros
 
 
@@ -227,7 +304,7 @@ async def connect_gopros_wireless(
                 else:
                     await logger.ainfo("Connecting to AP...")
                     await gopro.ble_command.request_wifi_connect_new(
-                        ssid="Nothing", password="smartwatch34"
+                        ssid="Nothing2", password="smartwatch34"
                     )
 
                 await logger.ainfo("Configure COHN...")
@@ -240,6 +317,50 @@ async def connect_gopros_wireless(
         except ResponseTimeout as e:
             await logger.aerror(
                 f"Failed to connect to GoPro {cam_name}",
+                error=str(e),
+            )
+
+async def connect_gopros_cohn(
+    gopros: dict[str, WirelessConnection],
+) -> AsyncGenerator[WirelessConnection, None]:
+    """
+    Attempt to open a connection to each provided COHN-only :py:class:`~WirelessConnection`.
+ 
+    Unlike :py:func:`connect_gopros_wireless`, this does not touch BLE at
+    all: it connects directly over HTTPS using credentials already present
+    in the COHN database (see :py:func:`create_cohn_gopros`). Intended for
+    cameras that have previously been provisioned for COHN, so they can be
+    reconnected quickly without re-scanning or re-provisioning via BLE.
+ 
+    Parameters
+    ----------
+    gopros : dict[str, WirelessConnection]
+        Mapping of camera identifiers to COHN-only :py:class:`~WirelessConnection`
+        objects to connect, as created by :py:func:`create_cohn_gopros`.
+ 
+    Yields
+    ------
+    WirelessConnection
+        Each successfully connected :py:class:`~WirelessConnection` object.
+    """
+    for cam_name, gopro in list(gopros.items()):
+        try:
+            await gopro.open(retries=5, timeout=10)
+            await logger.ainfo(f"{gopro}: {gopro.is_http_connected}")
+            await logger.ainfo(f"{gopro._wifi.is_connected}")
+            await logger.ainfo(
+                f"Connected to {gopro.identifier} via COHN",
+                cam_name=gopro.identifier,
+            )
+            yield gopro
+        except ResponseTimeout as e:
+            await logger.aerror(
+                f"Failed to connect to GoPro {cam_name} via COHN",
+                error=str(e),
+            )
+        except Exception as e:  # noqa: BLE001 - don't let one bad camera abort the rest
+            await logger.aerror(
+                f"Unexpected error connecting to GoPro {cam_name} via COHN",
                 error=str(e),
             )
 
@@ -462,7 +583,7 @@ async def scan_for_gopros_ble(waiting_time: int = 20) -> set[str]:
         devices = await BleakScanner.discover()
         matched_devices = [device for device in devices if device.name and token.match(device.name)]
         for d in matched_devices:
-            BLES.add(d)
+            BLES.add(d.name.split()[-1])
         await logger.adebug(f"Waiting for {waiting_time} seconds before retry")
         await asyncio.sleep(waiting_time)
     await logger.adebug("Finished scanning for GoPro BLE devices")

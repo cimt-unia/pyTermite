@@ -150,7 +150,7 @@ class LTC_Generator():
     def run(self):
         t = threading.Thread(target=self.generate_frames, daemon=True)
         t.start()
-        self.play_control_sound("start_recording")
+        # self.play_control_sound("start_recording")
         while not self.stop_event.is_set():
             with sd.OutputStream(samplerate=self.sample_rate, device=self.device, 
                         channels=1, dtype='float32',
@@ -158,6 +158,6 @@ class LTC_Generator():
                         callback=self.callback):
                 while not self.stop_event.is_set():
                     sd.sleep(1000)
-        time.sleep(1)
+        # time.sleep(1)
         #TODO new louder recording and manuel trigger without ltc class
-        self.play_control_sound("stop_recording", 2.0)
+        # self.play_control_sound("stop_recording", 2.0)
