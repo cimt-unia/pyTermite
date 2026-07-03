@@ -7,7 +7,7 @@ import os
 from pytermite.connection import (
     WiredConnection,
     WirelessConnection
-)
+)          
 
 tmp_file = "tmp_recordings.json"
 save_path = Path(__file__).parent / "tmp"
@@ -17,33 +17,54 @@ def fetch_filenames(serials: dict[str, str] | set[str] | None = None,
                     logger = None
     ):
     logger_available = logger is not None
-    if (serials is None or len(serials) < 1) and (gopros is None or len(gopros) < 1):
+    serials_valid = not (serials is None or len(serials) < 1)
+    gopros_valid = not (gopros is None or len(gopros) < 1)
+    if not serials_valid and not gopros_valid:
         if logger_available:
             logger.warning("No connected GoPros found! Recorded data paths could not be saved")
         return
 
     saved_entries = _get_saved_entries()
-
-    urls = []
-    for connection in gopros:
-        if not isinstance(connection, WirelessConnection): continue
-        urls.append(f"https://{connection.ip.address}:8080/gopro/media/last_captured", connection._identifier)
     
-    for serial_nr in serials:
-        ip = f"172.2{serial_nr[-3]}.1{serial_nr[-2:]}.51:8080"
-        urls.append(f"http://{ip}/gopro/media/last_captured", serial_nr[-4:])
-        
-    for url_last, cam_id in urls:    
-        response_last = requests.request("GET", url_last)
-        if response_last.status_code == 200:
-            if not cam_id in saved_entries:
-                saved_entries[cam_id] = [response_last.json()]
+    if gopros_valid:
+        for connection in gopros:
+            if not isinstance(connection, WirelessConnection): continue
+            
+            url_last = f"https://{connection.ip_address}/gopro/media/last_captured"
+            cert_string = connection.cohn.credentials.certificate
+            
+            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".pem") as f:
+                f.write(cert_string)
+                cert_path = f.name
+            
+            auth = (connection.cohn.credentials.username, connection.cohn.credentials.password)
+            try:
+                response_last = requests.request("GET", url_last, verify=cert_path, auth=auth)
+            finally:
+                os.unlink(cert_path)
+            
+            if response_last.status_code == 200:
+                if not connection._identifier in saved_entries:
+                    saved_entries[connection._identifier] = [response_last.json()]
+                else:
+                    saved_entries[connection._identifier].append(response_last.json())
+                _save_entries(saved_entries)
             else:
-                saved_entries[cam_id].append(response_last.json())
-
-            _save_entries(saved_entries)
-        else:
-            logger.warning(f"Last captured of {cam_id} could not be saved!")
+                logger.warning(f"Last captured of wireless {connection._identifier} could not be saved!")
+    
+    if serials_valid:
+        for serial_nr in serials:
+            ip = f"172.2{serial_nr[-3]}.1{serial_nr[-2:]}.51:8080"
+            url_last = f"http://{ip}/gopro/media/last_captured"    
+                response_last = requests.request("GET", url_last)
+            if response_last.status_code == 200:
+                if not cam_id in saved_entries:
+                    saved_entries[cam_id] = [response_last.json()]
+                else:
+                    saved_entries[cam_id].append(response_last.json())
+                _save_entries(saved_entries)
+            else:
+                logger.warning(f"Last captured of {cam_id} could not be saved!")
 
 def fetch_recorded( serials: dict[str, str] | set[str] | None = None,
                     save_path: str|None = None, 
