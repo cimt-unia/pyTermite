@@ -17,6 +17,7 @@ import os
 import pathlib
 import sys
 import re
+import socket
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -25,7 +26,7 @@ import structlog
 from open_gopro import WiredGoPro, WirelessGoPro
 from open_gopro.domain.exceptions import ResponseTimeout
 from zeroconf import ServiceListener, Zeroconf
-from zeroconf.asyncio import AsyncServiceBrowser
+from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 from open_gopro.models.proto import EnumCOHNNetworkState, EnumCOHNStatus
 from bleak import BleakScanner
 
@@ -203,26 +204,43 @@ async def connect_gopros_wireless(
             status = (await gopro.ble_command.cohn_get_status(register=True)).data
             await logger.ainfo(f"Initial COHN status: {status}", cam_name=gopro.identifier)
 
-            if status.state in (
-                EnumCOHNNetworkState.COHN_STATE_ConnectingToNetwork,
-                EnumCOHNNetworkState.COHN_STATE_NetworkConnected,
-            ):
-                await logger.ainfo("Camera already connecting/connected, skipping new AP request", cam_name=gopro.identifier)
-            else:
-                await logger.ainfo("Connecting to AP...")
-                await gopro.ble_command.request_wifi_connect_new(ssid="Nothing", password="smartwatch34")
-
-            await logger.ainfo("Configure COHN...")
-            # Don't force reprovision if we're just waiting on a connection that's already underway
-            cohn_result = await gopro.cohn.configure(
-                force_reprovision=(status.status == EnumCOHNStatus.COHN_UNPROVISIONED),
-                timeout=20,  # first attempt showed >60s is realistic here
+            already_ready = (
+                status.status == EnumCOHNStatus.COHN_PROVISIONED
+                and status.state == EnumCOHNNetworkState.COHN_STATE_NetworkConnected
             )
+
+            if already_ready:
+                await logger.ainfo(
+                    "COHN already provisioned and connected, skipping configure()",
+                    cam_name=gopro.identifier,
+                )
+                
+            else:
+                if status.state in (
+                    EnumCOHNNetworkState.COHN_STATE_ConnectingToNetwork,
+                    EnumCOHNNetworkState.COHN_STATE_NetworkConnected,
+                ):
+                    await logger.ainfo(
+                        "Camera already connecting/connected, skipping new AP request",
+                        cam_name=gopro.identifier,
+                    )
+                else:
+                    await logger.ainfo("Connecting to AP...")
+                    await gopro.ble_command.request_wifi_connect_new(
+                        ssid="Nothing", password="smartwatch34"
+                    )
+
+                await logger.ainfo("Configure COHN...")
+                await gopro.cohn.configure(
+                    force_reprovision=(status.status == EnumCOHNStatus.COHN_UNPROVISIONED),
+                    timeout=20,
+                )
+
             yield gopro
         except ResponseTimeout as e:
             await logger.aerror(
                 f"Failed to connect to GoPro {cam_name}",
-                error=str(e)
+                error=str(e),
             )
 
 
@@ -344,6 +362,8 @@ async def scan_for_gopros_wireless(waiting_time: int = 20) -> set[str]:
         INTERRUPT = False
     return BLES
 
+USB_IP_PATTERN = re.compile(r"^172\.2[0-9]\.1[0-9]{2}\.51$")
+
 class GoProListener(ServiceListener):
     """
     Service listener for mDNS services that collects discovered GoPro serial numbers.
@@ -374,12 +394,30 @@ class GoProListener(ServiceListener):
             e.g. ``"C3391324497848.<type_>"``.
         """
         serial = name.split(".")[0]
-        global GOPROS
-        if serial not in GOPROS:
-            logger.info(
-                f"Found new GoPro device with serial: {serial}", cam_serial=serial
-            )
-        GOPROS.add(serial)
+        asyncio.create_task(self._check_and_add(zc, type_, name, serial))
+
+    async def _check_and_add(self, zc: Zeroconf, type_: str, name: str, serial: str) -> None:
+        info = AsyncServiceInfo(type_, name)
+        if not await info.async_request(zc, timeout=3000):
+            await logger.adebug(f"Could not resolve service info for {serial}")
+            return
+    
+        addresses = info.parsed_scoped_addresses() if hasattr(info, "parsed_scoped_addresses") else info.parsed_addresses()
+        for addr in addresses:
+            if USB_IP_PATTERN.match(addr):
+                global GOPROS
+                if serial not in GOPROS:
+                    await logger.ainfo(
+                        f"Found new USB-connected GoPro with serial: {serial}",
+                        cam_serial=serial,
+                        ip=addr,
+                    )
+                GOPROS.add(serial)
+                return
+
+        await logger.adebug(
+            f"Ignoring GoPro {serial} — not a USB address", cam_serial=serial, addresses=addresses
+        )
 
 
 async def scan_for_gopros_usb() -> None:
