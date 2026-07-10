@@ -471,6 +471,7 @@ def disconnect() -> None:
     global CONNECTED_SERIALS
     asyncio.run(close_gopros(gopros=CONNECTED_GOPROS))
     CONNECTED_SERIALS = None
+    CONNECTED_GOPROS = set()
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
