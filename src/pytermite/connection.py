@@ -19,6 +19,7 @@ import sys
 import re
 import socket
 import json
+import requests
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -31,6 +32,8 @@ from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 from open_gopro.models.proto import EnumCOHNNetworkState, EnumCOHNStatus
 from bleak import BleakScanner
 from returns.pipeline import is_successful
+from returns.result import Result
+from open_gopro.models.general import CohnInfo
 
 
 from pytermite.utils import (
@@ -262,43 +265,38 @@ async def connect_gopros(
                 f"Failed to connect to GoPro {cam_name} with serial {gopro.identifier}",
                 error=str(e),
             )
-import logging
-logging.getLogger("open_gopro").setLevel(logging.DEBUG)
-logging.getLogger("open_gopro").addHandler(logging.StreamHandler())
+# import logging
+# logging.getLogger("open_gopro").setLevel(logging.DEBUG)
+# logging.getLogger("open_gopro").addHandler(logging.StreamHandler())
 
 async def connect_gopros_wireless(
     gopros: dict[str, WirelessConnection],
+    ssid: str = "GL-MT1300-0ad-5G",
+    password: str = "goodlife",
+    # ssid: str = "Nothing5",
+    # password: str = "smartwatch34",
 ) -> AsyncGenerator[WirelessConnection, None]:
     """
-    Attempt to open a connect to each provided :py:class:`~WirelessConnection`.
+    Attempt to open a connection to each provided :py:class:`~WirelessConnection`.
     """
- 
-    # Iterate over a snapshot of the items rather than the live dict:
-    # callers (e.g. _connect_to_gopros) commonly pop successfully-connected
-    # entries out of this same dict as they're yielded, which would raise
-    # "RuntimeError: dictionary changed size during iteration" if we kept
-    # iterating the dict directly.
     for cam_name, gopro in list(gopros.items()):
         try:
             await gopro.open(retries=5, timeout=10)
-            await logger.ainfo(
-                f"Connected to {gopro.identifier}",
-                cam_name=gopro.identifier,
-            )
+            await logger.ainfo(f"Connected to {gopro.identifier}", cam_name=cam_name)
+
             status = (await gopro.ble_command.cohn_get_status(register=True)).data
-            await logger.ainfo(f"Initial COHN status: {status}", cam_name=gopro.identifier)
- 
+            await logger.ainfo(f"Initial COHN status: {status}", cam_name=cam_name)
+
             already_ready = (
                 status.status == EnumCOHNStatus.COHN_PROVISIONED
                 and status.state == EnumCOHNNetworkState.COHN_STATE_NetworkConnected
             )
- 
+
             if already_ready:
                 await logger.ainfo(
                     "COHN already provisioned and connected, skipping configure()",
-                    cam_name=gopro.identifier,
+                    cam_name=cam_name,
                 )
-                
             else:
                 if status.state in (
                     EnumCOHNNetworkState.COHN_STATE_ConnectingToNetwork,
@@ -306,46 +304,38 @@ async def connect_gopros_wireless(
                 ):
                     await logger.ainfo(
                         "Camera already connecting/connected, skipping new AP request",
-                        cam_name=gopro.identifier,
+                        cam_name=cam_name,
                     )
                 else:
-                    await logger.ainfo("Connecting to AP...")
-                    await gopro.ble_command.request_wifi_connect_new(
-                        ssid="Nothing5", password="smartwatch34"
-                    )
- 
-                await logger.ainfo("Configure COHN...")
+                    await logger.ainfo("Connecting to AP...", cam_name=cam_name)
+                    await gopro.access_point.connect(ssid, password)
+
+                await logger.ainfo("Configure COHN...", cam_name=cam_name)
                 result = await gopro.cohn.configure(
                     force_reprovision=(status.status == EnumCOHNStatus.COHN_UNPROVISIONED),
                     timeout=60,
                 )
-                if not is_successful(result):
-                    # configure() only writes the camera's real IP address to
-                    # the COHN db *after* it observes COHN_STATE_NetworkConnected.
-                    # If we get here, that never happened (e.g. it's still
-                    # stuck in COHN_STATE_ConnectingToNetwork) — the db entry
-                    # for this camera has incomplete/no credentials (no IP),
-                    # and it is NOT actually usable via COHN yet. Don't report
-                    # it as connected.
-                    await logger.aerror(
-                        "COHN configuration did not complete (camera never "
-                        "reached NetworkConnected — likely still associating "
-                        "with the AP or failing to get an IP); camera is not "
-                        "connected via COHN",
-                        cam_name=gopro.identifier,
-                        error=str(result.failure()),
-                    )
-                    continue
- 
+                await logger.ainfo(result, cam_name=cam_name)
+
             yield gopro
+
         except ResponseTimeout as e:
+            await logger.aerror(
+                f"Timed out connecting to GoPro {cam_name}",
+                error=str(e),
+            )
+        except Exception as e:
             await logger.aerror(
                 f"Failed to connect to GoPro {cam_name}",
                 error=str(e),
             )
 
+
 async def connect_gopros_cohn(
     gopros: dict[str, WirelessConnection],
+    ssid: str = "GL-MT1300-0ad-5G",
+    password: str = "goodlife",
+    timeout: int = 5,
 ) -> AsyncGenerator[WirelessConnection, None]:
     """
     Attempt to open a connection to each provided COHN-only :py:class:`~WirelessConnection`.
@@ -370,8 +360,57 @@ async def connect_gopros_cohn(
     for cam_name, gopro in list(gopros.items()):
         try:
             await gopro.open(retries=5, timeout=10)
-            await logger.ainfo(f"{gopro}: {gopro.is_http_connected}")
-            await logger.ainfo(f"{gopro._wifi.is_connected}")
+            # await logger.ainfo(f"{gopro}: {gopro.is_http_connected}")
+            # await logger.ainfo(f"{gopro._wifi.is_connected}")
+            # status = (await gopro.ble_command.cohn_get_status(register=True)).data
+            # await logger.ainfo(f"Initial COHN status: {status}", cam_name=cam_name)
+
+            # already_ready = (
+            #     status.status == EnumCOHNStatus.COHN_PROVISIONED
+            #     and status.state == EnumCOHNNetworkState.COHN_STATE_NetworkConnected
+            # )
+
+            # if already_ready:
+            #     await logger.ainfo(
+            #         "COHN already provisioned and connected, skipping configure()",
+            #         cam_name=cam_name,
+            #     )
+            # else:
+            #     if status.state in (
+            #         EnumCOHNNetworkState.COHN_STATE_ConnectingToNetwork,
+            #         EnumCOHNNetworkState.COHN_STATE_NetworkConnected,
+            #     ):
+            #         await logger.ainfo(
+            #             "Camera already connecting/connected, skipping new AP request",
+            #             cam_name=cam_name,
+            #         )
+            #     else:
+            #         await logger.ainfo("Connecting to AP...", cam_name=cam_name)
+            #         await gopro.access_point.connect(ssid, password)
+
+            #     # await logger.ainfo("Configure COHN...", cam_name=cam_name)
+            #     # result = await gopro.cohn.configure(
+            #     #     force_reprovision=(status.status == EnumCOHNStatus.COHN_UNPROVISIONED),
+            #     #     timeout=60,
+            #     # )
+            #     # await logger.ainfo(result, cam_name=cam_name)
+
+            # yield gopro
+
+            # continue
+
+
+
+            try:
+                await asyncio.wait_for(gopro.http_command.get_camera_state(), timeout=timeout)
+            except requests.exceptions.RequestException as e:
+                await logger.ainfo("Camera unreachable via COHN", cam_name=cam_name, error=str(e))
+                continue
+            except asyncio.TimeoutError:
+                await logger.ainfo("Timed out waiting for COHN response", cam_name=cam_name)
+                await gopro.access_point.connect()
+                continue
+
             await logger.ainfo(
                 f"Connected to {gopro.identifier} via COHN",
                 cam_name=gopro.identifier,

@@ -306,6 +306,14 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
     metavar="<str>",
 )
 @click.option(
+    "--ble",
+    "-b",
+    help="BLE names of GoPro cameras to connect to. Sperated by commas.",
+    envvar="PYTERMITE_BLES",
+    show_envvar=True,
+    metavar="<str>",
+)
+@click.option(
     "--serials-file",
     "-f",
     type=click.Path(exists=True),
@@ -316,7 +324,7 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
     metavar="<str>",
 )
 def connect(
-    auto: bool, serials: str | None, serials_file: str | None, cohn_db: str = COHN_DB
+    auto: bool, serials: str | None, serials_file: str | None, ble: str | None, cohn_db: str = COHN_DB
 ) -> None:  # numpydoc ignore=GL03
     """
     Connect to one or more GoPro devices using the selected discovery method.
@@ -379,6 +387,10 @@ def connect(
             "Loading serial numbers from provided file to connect to GoPro cameras...",
         )
         serial_numbers = load_serial_numbers_from_json(serials_file)
+    elif ble:
+        log = log.bind(option="ble")
+        log.info("Using provided ble names to connect to GoPro cameras...")
+        ble_names = {n.strip() for n in ble.split(",")}
     else:
         raise click.UsageError(
             "Please specify a connection method: --auto, --serials, or --serials-file.",
@@ -410,9 +422,20 @@ def connect(
     CONNECTED_SERIALS = serial_numbers
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
     BLES = create_wireless_gopros(gopro_names=ble_names)
+    # cohn_db
     COHN = create_cohn_gopros(identifiers=cohn_identifiers, cohn_db_path=cohn_db)
     asyncio.run(_connect_to_gopros())
-    log.info("Connected to all requested GoPro cameras")
+    failed = {**GOPROS, **BLES, **COHN}
+    if failed:
+        log.warning(
+            f"Failed to connect to {len(failed)} of "
+            f"{len(GOPROS) + len(BLES) + len(COHN) + len(CONNECTED_GOPROS)} requested camera(s): "
+            f"{sorted(failed)}"
+        )
+    if CONNECTED_GOPROS:
+        log.info(f"Connected to {len(CONNECTED_GOPROS)} GoPro camera(s)")
+    else:
+        log.error("Failed to connect to any requested GoPro cameras")
     # When running inside the interactive shell the process will stay alive
     # and the user can call `disconnect` from the same shell. If invoked
     # directly from a single-shot process the CLI will exit as before.
