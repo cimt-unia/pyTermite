@@ -4,11 +4,14 @@ import json
 import time
 import os
 import tempfile
+from  multiprocessing import Process
 
 from pytermite.connection import (
     WiredConnection,
     WirelessConnection
-)          
+)
+
+from pytermite.lineartimecode_two import decode_timecode_batch
 
 tmp_file = "tmp_recordings.json"
 save_path = Path(__file__).parent / "tmp"
@@ -71,6 +74,7 @@ def fetch_filenames(serials: dict[str, str] | set[str] | None = None,
 def fetch_recorded( serials: dict[str, str] | set[str] | None = None,
                     save_path: str|None = None, 
                     logger = None,
+                    max_processes = 8,
                     allowed_retries = 10
     ):
     logger_available = logger is not None
@@ -87,18 +91,18 @@ def fetch_recorded( serials: dict[str, str] | set[str] | None = None,
             logger.warning("No Files marked for fetching found!")
         return
 
+    tasks = []
+
     if save_path is None:
         save_path = Path.home() / "Downloads"
     else:
         save_path = Path(save_path)
 
-    delete_dict = {}
     for cam_id, entry_list in saved_entries.items():
         if cam_id not in connected_cam_ids:
             if logger_available:
                 logger.info(f"Camera {cam_id} has files marked for fetching, but is not connected. Skipped...")
             continue
-        delete_dict[cam_id] =  []
         save_path_cam = save_path / cam_id
         ip = f"172.2{cam_id[-3]}.1{cam_id[-2:]}.51:8080"
 
@@ -117,23 +121,46 @@ def fetch_recorded( serials: dict[str, str] | set[str] | None = None,
                 logger.warning(f"Timeout: Data of {cam_id} could not be fetched. Filename: {entry["file"]}")
                 continue
 
-            url = f"http://{ip}/videos/DCIM/{entry["folder"]}/{entry["file"]}"
-            response = requests.request("GET", url)
-            if response.status_code == 200:
-                os.makedirs(save_path_cam, exist_ok=True)
-                logger.info(f"Saved to {save_path_cam}")
-                with open(save_path_cam / entry["file"], "wb") as f:
-                    f.write(response.content)
-                delete_dict[cam_id].append(idx)
-            else:
-                logger.warning(f"Unknown: Data of {cam_id} could not be fetched. Filename: {entry["file"]}")
+            tasks.append((
+                f"http://{ip}/videos/DCIM/{entry["folder"]}/{entry["file"]}",
+                save_path_cam,
+                entry["file"],
+                cam_id,
+                idx
+            ))
+
+    with multiprocessing.Pool(processes=max_processes) as pool:
+        results = pool.starmap(_fetch_recoding, tasks)
     
+    delete_dict = {}
+    saved_video_paths = []
+    for cam_id, idx, success, save_path_cam in results:
+        if not success: continue
+        saved_video_paths.append((f"{save_path_cam[0]}/{save_path_cam[1]}", 50))
+        if not cam_id in delete_dict:
+            delete_dict[cam_id] = [idx]
+        else:
+            delete_dict[cam_id].append(idx)
+
     for cam_id, idxs in delete_dict.items():
         for i in sorted(idxs, reverse=True):
             del saved_entries[cam_id][i]
         if not saved_entries[cam_id]:
             del saved_entries[cam_id]
     _save_entries(saved_entries)
+
+    Process(target=decode_timecode_batch, args=(saved_video_paths,max_processes,), daemon=False).start()
+
+def _fetch_recoding(url, save_path_cam, filename, cam_id, idx):
+    response = requests.request("GET", url, stream=True)
+    if response.status_code == 200:
+        os.makedirs(save_path_cam, exist_ok=True)
+        with open(save_path_cam / filename, "wb") as f:
+            
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        logger.info(f"Saved to {save_path_cam}")
+    return (cam_id, idx, response.status_code == 200, (save_path_cam, filename))   
 
 def _get_saved_entries() -> dict:
     global tmp_file

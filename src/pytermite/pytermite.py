@@ -42,7 +42,7 @@ from pytermite.connection import (
     scan_for_gopros_wireless,
 )
 from pytermite.utils import load_serial_numbers_from_json
-from pytermite.lineartimecode_two import LTC_Generator
+from pytermite.lineartimecode_two import LTC_Generator, start_LTC_Decoder, decode_timecode_batch
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
 
 os.environ["LANG"] = "en_US"
@@ -544,6 +544,27 @@ def fetchdata(save_path: str|None) -> None:
     try:
         fetch_process = Process(target=fetch_recorded, args=(CONNECTED_SERIALS, save_path, log), daemon=False)
         fetch_process.start()
+    except RuntimeError as e:
+        log.error(str(e))
+    if KEEP_OPEN:
+        _run_repl(click.get_current_context())
+
+decode_processes = []
+@cli.command()
+@click.option('--input_path', default=None, type=click.Path())
+@click.option('--fps', default=50, type=int)
+@click.argument("action", type=click.Choice(["start", "stop"]))
+def decode_path(action:str, input_path: str|None, fps:int) -> None:
+    global decode_processes
+    log = logger.bind(command="decode_path")
+    try:
+        if action == "start":
+            p = Process(target=decode_timecode_batch, args=([(input_path, fps)], 1,), daemon=False)
+            decode_processes.append(p)
+            p.start()
+        elif action == "stop":
+            for p in decode_processes:
+                p.terminate()
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
