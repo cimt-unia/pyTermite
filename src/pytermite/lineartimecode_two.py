@@ -296,12 +296,18 @@ class LTC_Decoder():
         final_timecode = f"{h:02d}:{m:02d}:{s:02d}:{f:02d}"
         self._write_timecode(input_path, video_path, final_timecode)
 
-def start_LTC_Decoder(input_path:str):
-    #generator = LTC_Generator(config = {
-    #                "sample_rate": 48000,
-    #                "fps": 50,
-    #                "device": None
-    #            }, stop_event=None)
-    #generator.generate_wav()
-    decoder = LTC_Decoder()
-    decoder.decode_ltc(input_path, 50)
+def decode_timecode_batch(decode_tasks:list, max_processes=8):
+    with multiprocessing.Pool(processes=max_processes) as pool:
+        results = pool.starmap(start_LTC_Decoder, decode_tasks)
+    for result in results:
+        if result[1]: continue
+        print(f"Error when decoding: {result[0]}")
+
+def start_LTC_Decoder(input_path:str, fps=50):
+    success = False
+    try:
+        decoder = LTC_Decoder()
+        decoder.decode_ltc(input_path, fps)
+        success = True
+    finally:
+        return (input_path, success)

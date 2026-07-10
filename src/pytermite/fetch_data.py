@@ -9,7 +9,9 @@ from  multiprocessing import Process
 from pytermite.connection import (
     WiredConnection,
     WirelessConnection
-)          
+)
+
+from pytermite.lineartimecode_two import decode_timecode_batch
 
 tmp_file = "tmp_recordings.json"
 save_path = Path(__file__).parent / "tmp"
@@ -131,8 +133,10 @@ def fetch_recorded( serials: dict[str, str] | set[str] | None = None,
         results = pool.starmap(_fetch_recoding, tasks)
     
     delete_dict = {}
-    for cam_id, idx, success in results:
+    saved_video_paths = []
+    for cam_id, idx, success, save_path_cam in results:
         if not success: continue
+        saved_video_paths.append((f"{save_path_cam[0]}/{save_path_cam[1]}", 50))
         if not cam_id in delete_dict:
             delete_dict[cam_id] = [idx]
         else:
@@ -145,6 +149,8 @@ def fetch_recorded( serials: dict[str, str] | set[str] | None = None,
             del saved_entries[cam_id]
     _save_entries(saved_entries)
 
+    Process(target=decode_timecode_batch, args=(saved_video_paths,max_processes,), daemon=False).start()
+
 def _fetch_recoding(url, save_path_cam, filename, cam_id, idx):
     response = requests.request("GET", url, stream=True)
     if response.status_code == 200:
@@ -154,7 +160,7 @@ def _fetch_recoding(url, save_path_cam, filename, cam_id, idx):
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
         logger.info(f"Saved to {save_path_cam}")
-    return (cam_id, idx, response.status_code == 200)   
+    return (cam_id, idx, response.status_code == 200, (save_path_cam, filename))   
 
 def _get_saved_entries() -> dict:
     global tmp_file

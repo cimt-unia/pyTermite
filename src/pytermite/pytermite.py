@@ -42,7 +42,7 @@ from pytermite.connection import (
     scan_for_gopros_wireless,
 )
 from pytermite.utils import load_serial_numbers_from_json
-from pytermite.lineartimecode_two import LTC_Generator, start_LTC_Decoder
+from pytermite.lineartimecode_two import LTC_Generator, start_LTC_Decoder, decode_timecode_batch
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
 
 os.environ["LANG"] = "en_US"
@@ -465,7 +465,7 @@ last_timecode_flag = False
 @click.option('--device', default=None, type=int)
 @click.option('--fps', default=50, type=int)
 @click.option('--sample_rate', default=48000, type=int)
-@click.argument("action", type=click.Choice(["start", "stop", "test"]))
+@click.argument("action", type=click.Choice(["start", "stop"]))
 def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: int) -> None:  # numpydoc ignore=GL03
     #TODO extend documentation with new options
     """
@@ -479,9 +479,6 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
         Whether to start or stop recording.
     """
     log = logger.bind(command="record")
-    if action == "test":
-        start_LTC_Decoder("/home/jonas/Downloads/8141/GX010126.MP4")
-        return
     global ltc_processes
     global last_timecode_flag
     global CONNECTED_GOPROS
@@ -523,6 +520,27 @@ def fetchdata(save_path: str|None) -> None:
     try:
         fetch_process = Process(target=fetch_recorded, args=(CONNECTED_SERIALS, save_path, log), daemon=False)
         fetch_process.start()
+    except RuntimeError as e:
+        log.error(str(e))
+    if KEEP_OPEN:
+        _run_repl(click.get_current_context())
+
+decode_processes = []
+@cli.command()
+@click.option('--input_path', default=None, type=click.Path())
+@click.option('--fps', default=50, type=int)
+@click.argument("action", type=click.Choice(["start", "stop"]))
+def decode_path(action:str, input_path: str|None, fps:int) -> None:
+    global decode_processes
+    log = logger.bind(command="decode_path")
+    try:
+        if action == "start":
+            p = Process(target=decode_timecode_batch, args=([(input_path, fps)], 1,), daemon=False)
+            decode_processes.append(p)
+            p.start()
+        elif action == "stop":
+            for p in decode_processes:
+                p.terminate()
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
