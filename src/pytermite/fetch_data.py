@@ -4,6 +4,7 @@ import json
 import time
 import os
 import tempfile
+import multiprocessing
 from  multiprocessing import Process
 
 from pytermite.connection import (
@@ -159,7 +160,6 @@ def _fetch_recoding(url, save_path_cam, filename, cam_id, idx):
             
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-        logger.info(f"Saved to {save_path_cam}")
     return (cam_id, idx, response.status_code == 200, (save_path_cam, filename))   
 
 def _get_saved_entries() -> dict:
