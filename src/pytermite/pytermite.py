@@ -42,7 +42,7 @@ from pytermite.connection import (
     scan_for_gopros_wireless,
 )
 from pytermite.utils import load_serial_numbers_from_json
-from pytermite.lineartimecode_two import LTC_Generator
+from pytermite.lineartimecode_two import LTC_Generator, start_LTC_Decoder
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
 
 os.environ["LANG"] = "en_US"
@@ -465,7 +465,7 @@ last_timecode_flag = False
 @click.option('--device', default=None, type=int)
 @click.option('--fps', default=50, type=int)
 @click.option('--sample_rate', default=48000, type=int)
-@click.argument("action", type=click.Choice(["start", "stop"]))
+@click.argument("action", type=click.Choice(["start", "stop", "test"]))
 def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: int) -> None:  # numpydoc ignore=GL03
     #TODO extend documentation with new options
     """
@@ -479,6 +479,9 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
         Whether to start or stop recording.
     """
     log = logger.bind(command="record")
+    if action == "test":
+        start_LTC_Decoder("/home/jonas/Downloads/8141/GX010126.MP4")
+        return
     global ltc_processes
     global last_timecode_flag
     global CONNECTED_GOPROS
