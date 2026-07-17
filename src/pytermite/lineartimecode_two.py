@@ -20,7 +20,7 @@ position_map = {
     50: {
         "FF": {
             "units": (0,),
-            "tens":  (8, 11)
+            "tens":  (8, 10)
         },
         "SS": {
             "units": (16,),
@@ -209,6 +209,7 @@ class LTC_Decoder():
 
         return total_units + total_tens * 10
             
+    import matplotlib.pyplot as plt
 
     def decode_ltc(self, input_path:str, fps:int):
         base_path = ".".join(input_path.split(".")[:-1])

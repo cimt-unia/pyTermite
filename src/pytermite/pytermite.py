@@ -23,6 +23,7 @@ from multiprocessing import Process, Event
 import click
 import structlog
 from click_help_colors import HelpColorsGroup
+import time
 
 from pytermite.commands import camera_shutter
 from pytermite.config import LOG_LEVEL
@@ -524,6 +525,7 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
                 )
                 ltc_process.start()
                 ltc_processes.append((ltc_process, stop_event))
+                time.sleep(3)
             elif action == "stop":
                 for p in ltc_processes:
                     p[1].set()
