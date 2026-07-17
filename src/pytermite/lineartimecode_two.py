@@ -217,6 +217,8 @@ class LTC_Decoder():
         video_path = f"{base_path}_timecode.mp4"
         self._extract_audio(input_path, audio_path)
         data, samplerate = sf.read(audio_path)
+        if data.ndim > 1:
+            data = data[:, 0]
         samples_per_bit = int(samplerate / fps / 80)
         transitions = np.nonzero(np.diff(np.sign(data)))[0]
         transition_diffs_short = (np.diff(transitions) < (samples_per_bit * 0.75)).astype(int)
