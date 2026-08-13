@@ -110,6 +110,7 @@ class WirelessConnection(WirelessGoPro):
         target = kwargs.pop("target", None)
         super().__init__(target=target, **kwargs)
         self._target: str | None = target
+        self._should_maintain_state = False  # TODO: untested!
         # self.identifier = self._identifier
 
     # @property
@@ -153,10 +154,10 @@ def create_wireless_gopros(
     gopros = {}
     if isinstance(gopro_names, dict):
         for cam_name, identifier in gopro_names.items():
-            gopros[cam_name] = WirelessConnection(target=identifier, interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN})
+            gopros[cam_name] = WirelessConnection(target=identifier, interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN}, keep_alive_interval=10, maintain_state=False)
     elif isinstance(gopro_names, set):
         for identifier in gopro_names:
-            gopros[identifier] = WirelessConnection(target=identifier, interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN})
+            gopros[identifier] = WirelessConnection(target=identifier, interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN}, keep_alive_interval=10, maintain_state=False)
     return gopros
 
 def load_cohn_identifiers(cohn_db_path: pathlib.Path | str = COHN_DB) -> set[str]:
@@ -485,8 +486,8 @@ async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
     finally:
         await logger.ainfo(f"Found {len(GOPROS)} devices")
         # Clean up
-        global INTERRUPT
-        INTERRUPT = False
+        # global INTERRUPT
+        # INTERRUPT = False
     return GOPROS
 
 

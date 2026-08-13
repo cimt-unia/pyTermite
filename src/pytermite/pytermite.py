@@ -366,24 +366,29 @@ def connect(
             serial_numbers = asyncio.run(scan_for_gopros(waiting_time=5))
 
         # load cohn database
+        log.info("Searching for COHN provisioned GoPro cameras in database...")
         cohn_identifiers = load_cohn_identifiers(cohn_db)
         
         if cohn_identifiers:
             log.info(
-                "Found cameras already provisioned for COHN; connecting "
-                "directly without BLE...",
+                "Found cameras already provisioned for COHN. Connecting via network...",
                 count=len(cohn_identifiers),
                 identifiers=sorted(cohn_identifiers),
             )
+
+        # bluetooth discovery
         if len(BLES) == 0:
-            log.info("Searching for additional GoPro cameras via BLE connection...")
+            log.info("Searching for GoPro cameras via BLE connection...")
             discovered_ble = asyncio.run(scan_for_gopros_wireless(waiting_time=10))
             ble_names = discovered_ble - cohn_identifiers
             skipped = discovered_ble & cohn_identifiers
+            if serial_numbers not in (None, set()):
+                ble_names = ble_names - {sn[-4:] for sn in serial_numbers}
+                skipped = skipped & {sn[-4:] for sn in serial_numbers}
+            
             if skipped:
                 log.info(
-                    "Skipping BLE provisioning for cameras already "
-                    "provisioned for COHN",
+                    "Skipping BLE provisioning for cameras already provisioned for COHN",
                     identifiers=sorted(skipped),
                 )
         else:

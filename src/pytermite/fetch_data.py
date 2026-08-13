@@ -150,7 +150,7 @@ def fetch_recorded( serials: dict[str, str] | set[str] | None = None,
             del saved_entries[cam_id]
     _save_entries(saved_entries)
 
-    Process(target=decode_timecode_batch, args=(saved_video_paths,max_processes,), daemon=False).start()
+    # Process(target=decode_timecode_batch, args=(saved_video_paths,max_processes,), daemon=False).start()
 
 def _fetch_recoding(url, save_path_cam, filename, cam_id, idx):
     response = requests.request("GET", url, stream=True)
