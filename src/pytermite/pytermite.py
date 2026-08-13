@@ -449,12 +449,14 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
 
 preview_processes = []
 @cli.command()
-@click.argument("action", type=click.Choice(["start", "stop"]))
+@click.argument("action", type=click.Choice(["start", "stop"]), default=None)
 def preview_stream(action: str) -> None:
-    log = logger.bind(command="preview_stream")
+    log = logger.bind(command="preview-stream")
+    global CONNECTED_SERIALS
     global preview_processes
     try:
-        if action == "start":
+        cams_available = CONNECTED_SERIALS is not None and len(CONNECTED_SERIALS) > 0
+        if action == "start" and cams_available:
             stop_event = asyncio.Event()
             preview_process = Process(
                 target=run_preview,
@@ -469,9 +471,9 @@ def preview_stream(action: str) -> None:
                     delete_list.append(idx)
             for i in sorted(delete_list, reverse=True):
                 del preview_processes[i]
-
-                
-
+                log.info(f"Stopped preview process {i}")
+        else:
+            log.warning("Preview could not be started: Invalid parameters/No GoPros available")
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
