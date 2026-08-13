@@ -20,6 +20,7 @@ import re
 import socket
 import json
 import requests
+import traceback
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -31,6 +32,8 @@ from zeroconf import ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 from open_gopro.models.proto import EnumCOHNNetworkState, EnumCOHNStatus
 from bleak import BleakScanner
+from bleak.backends.device import BLEDevice
+from bleak.backends.scanner import AdvertisementData
 from returns.pipeline import is_successful
 from returns.result import Result
 from open_gopro.models.general import CohnInfo
@@ -272,7 +275,7 @@ async def connect_gopros(
 
 async def connect_gopros_wireless(
     gopros: dict[str, WirelessConnection],
-    ssid: str = "Nothing5",
+    ssid: str = "Nothing6",
     password: str = "smartwatch34",
 ) -> AsyncGenerator[WirelessConnection, None]:
     """
@@ -325,7 +328,7 @@ async def connect_gopros_wireless(
 
 async def connect_gopros_cohn(
     gopros: dict[str, WirelessConnection],
-    timeout: int = 5,
+    timeout: int = 2,
 ) -> AsyncGenerator[WirelessConnection, None]:
     """
     Attempt to open a connection to each provided COHN-only :py:class:`~WirelessConnection`.
@@ -349,33 +352,42 @@ async def connect_gopros_cohn(
     """
     for cam_name, gopro in list(gopros.items()):
         try:
-            await gopro.open(retries=5, timeout=10)
+            await gopro.open(retries=1, timeout=timeout)
+            ip, port = gopro.cohn.credentials.ip_address, 443
+            await asyncio.wait_for(
+                asyncio.open_connection(ip, port), timeout=timeout
+            )
+        except (OSError, asyncio.TimeoutError):
+            await logger.ainfo(
+                "Camera unreachable via COHN (Request Timed Out)", 
+                cam_name=cam_name
+            )
+            continue
 
+        try:
+            
             try:
                 await asyncio.wait_for(gopro.http_command.get_camera_state(), timeout=timeout)
-            except requests.exceptions.RequestException as e:
-                await logger.ainfo("Camera unreachable via COHN", cam_name=cam_name, error=str(e))
-                continue
-            except asyncio.TimeoutError:
-                await logger.ainfo("Timed out waiting for COHN response", cam_name=cam_name)
-                # await gopro.access_point.connect()
+                await logger.ainfo("Successfully connected", cam_name=cam_name)
+                yield gopro
+               
+            except requests.exceptions.ConnectionError as e:
+                await logger.ainfo(
+                    "Camera network error via COHN", 
+                    cam_name=cam_name, 
+                    error=str(e)
+                )
                 continue
 
+        except Exception as e:
+            tb_str = traceback.format_exc()
             await logger.ainfo(
-                f"Connected to {gopro.identifier} via COHN",
-                cam_name=gopro.identifier,
-            )
-            yield gopro
-        except ResponseTimeout as e:
-            await logger.aerror(
-                f"Failed to connect to GoPro {cam_name} via COHN",
+                "Failed to establish GoPro session", 
+                cam_name=cam_name, 
                 error=str(e),
+                traceback=tb_str
             )
-        except Exception as e:  # noqa: BLE001 - don't let one bad camera abort the rest
-            await logger.aerror(
-                f"Unexpected error connecting to GoPro {cam_name} via COHN",
-                error=str(e),
-            )
+            continue
 
 
 async def close_gopros(
@@ -594,16 +606,19 @@ async def scan_for_gopros_ble(waiting_time: int = 20) -> set[str]:
     Scan for BLE devices and retrieve identfier.
     """
     token = re.compile(r"GoPro [A-Z0-9]{4}")
-
-    await logger.ainfo("Start scanning for GoPro BLE devices")
-    waiting_time = 3
     global BLES
     global INTERRUPT
-    while not INTERRUPT:
-        devices = await BleakScanner.discover()
-        matched_devices = [device for device in devices if device.name and token.match(device.name)]
-        for d in matched_devices:
-            BLES.add(d.name.split()[-1])
-        await logger.adebug(f"Waiting for {waiting_time} seconds before retry")
-        await asyncio.sleep(waiting_time)
+
+    await logger.ainfo("Start scanning for GoPro BLE devices")
+    
+    def detection_callback(device: BLEDevice, advertisment_data: AdvertisementData):
+        name = device.name or advertisment_data.local_name
+        if name and token.match(name):
+            cam_id = name.split()[-1]
+            BLES.add(cam_id)
+
+    async with BleakScanner(detection_callback=detection_callback):
+        while not INTERRUPT:
+            await asyncio.sleep(0.5)
+
     await logger.adebug("Finished scanning for GoPro BLE devices")

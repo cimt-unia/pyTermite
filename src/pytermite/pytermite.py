@@ -315,6 +315,15 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
     metavar="<str>",
 )
 @click.option(
+    "--cohn",
+    "-c",
+    is_flag=True,  # <--- Added is_flag=True
+    default=False,
+    help="Using provisioned COHN devices only.",
+    envvar="PYTERMITE_COHN",
+    show_envvar=True,
+)
+@click.option(
     "--serials-file",
     "-f",
     type=click.Path(exists=True),
@@ -325,7 +334,7 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
     metavar="<str>",
 )
 def connect(
-    auto: bool, serials: str | None, serials_file: str | None, ble: str | None, cohn_db: str = COHN_DB
+    auto: bool, serials: str | None, serials_file: str | None, ble: str | None, cohn: bool, cohn_db: str = COHN_DB,
 ) -> None:  # numpydoc ignore=GL03
     """
     Connect to one or more GoPro devices using the selected discovery method.
@@ -355,6 +364,8 @@ def connect(
         if len(GOPROS) == 0:
             log.info("Searching for connected GoPro cameras via USB connection...")
             serial_numbers = asyncio.run(scan_for_gopros(waiting_time=5))
+
+        # load cohn database
         cohn_identifiers = load_cohn_identifiers(cohn_db)
         
         if cohn_identifiers:
@@ -392,6 +403,19 @@ def connect(
         log = log.bind(option="ble")
         log.info("Using provided ble names to connect to GoPro cameras...")
         ble_names = {n.strip() for n in ble.split(",")}
+    elif cohn:
+        log = log.bind(option="cohn")
+        log.info("Using just provisioned COHN devices...")
+        # load cohn database
+        cohn_identifiers = load_cohn_identifiers(cohn_db)
+        
+        if cohn_identifiers:
+            log.info(
+                "Found cameras already provisioned for COHN; connecting "
+                "directly without BLE...",
+                count=len(cohn_identifiers),
+                identifiers=sorted(cohn_identifiers),
+            )
     else:
         raise click.UsageError(
             "Please specify a connection method: --auto, --serials, or --serials-file.",
@@ -418,6 +442,10 @@ def connect(
 
     if cohn_identifiers:
         log.info("COHN identifiers to connect to: %s", cohn_identifiers)
+
+    log.info(f"Using USB: {serial_numbers}")
+    log.info(f"Using BLE: {ble_names}")
+    log.info(f"Using COHN: {cohn_identifiers}")
 
     # TODO: add wireless gopros
     CONNECTED_SERIALS = serial_numbers
