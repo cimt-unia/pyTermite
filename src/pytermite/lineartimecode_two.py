@@ -127,7 +127,9 @@ class LTC_Generator:
             samples = self.sample_word(word)
             self.frame_queue.put(np.array(samples, dtype=np.float32))
 
-    def callback(self, outdata: np.ndarray, frames: int, time: int, status: str) -> None:
+    def callback(
+        self, outdata: np.ndarray, frames: int, time: int, status: str
+    ) -> None:
         try:
             outdata[:, 0] = self.frame_queue.get_nowait()
         except queue.Empty:

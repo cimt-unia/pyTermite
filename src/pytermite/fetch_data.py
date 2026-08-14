@@ -167,7 +167,9 @@ def fetch_recorded(
     # Process(target=decode_timecode_batch, args=(saved_video_paths,max_processes,), daemon=False).start()
 
 
-def _fetch_recoding(url: str, save_path_cam: Path, filename: str, cam_id: str, idx: int) -> tuple[str, int, bool, tuple[Path, str]]:
+def _fetch_recoding(
+    url: str, save_path_cam: Path, filename: str, cam_id: str, idx: int
+) -> tuple[str, int, bool, tuple[Path, str]]:
     response = requests.request("GET", url, stream=True)
     if response.status_code == 200:
         Path(save_path_cam).mkdir(exist_ok=True, parents=True)

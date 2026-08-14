@@ -638,7 +638,9 @@ async def scan_for_gopros_ble(waiting_time: int = 20) -> None:
 
     await logger.ainfo("Start scanning for GoPro BLE devices")
 
-    def detection_callback(device: BLEDevice, advertisment_data: AdvertisementData) -> None:
+    def detection_callback(
+        device: BLEDevice, advertisment_data: AdvertisementData
+    ) -> None:
         name = device.name or advertisment_data.local_name
         if name and token.match(name):
             cam_id = name.split()[-1]
