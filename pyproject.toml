@@ -31,6 +31,10 @@ dependencies = [
     "rich",
     "click",
     "click-help-colors",
+    "ffmpeg-python",
+    "numpy",
+    "sounddevice",
+    "soundfile",
 ]
 
 [project.urls]

@@ -7,3 +7,6 @@ rich
 click
 click-help-colors
 ffmpeg-python
+numpy
+sounddevice
+soundfile
