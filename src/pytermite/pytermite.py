@@ -315,7 +315,7 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
 @click.option(
     "--ble",
     "-b",
-    help="BLE names of GoPro cameras to connect to. Sperated by commas.",
+    help="BLE names of GoPro cameras to connect to. Separated by commas.",
     envvar="PYTERMITE_BLES",
     show_envvar=True,
     metavar="<str>",

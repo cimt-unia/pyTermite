@@ -431,7 +431,7 @@ async def close_gopros(
             )
         elif isinstance(gopro, WirelessConnection):
             logger.debug(
-                f"Disconnected frmo {gopro.identifier}",
+                f"Disconnected from {gopro.identifier}",
                 cam_name=gopro.identifier,
             )
 
@@ -630,7 +630,7 @@ async def scan_for_gopros_usb() -> None:
 
 async def scan_for_gopros_ble(waiting_time: int = 20) -> None:
     """
-    Scan for BLE devices and retrieve identfier.
+    Scan for BLE devices and retrieve identifier.
     """
     token = re.compile(r"GoPro [A-Z0-9]{4}")
     global BLES
