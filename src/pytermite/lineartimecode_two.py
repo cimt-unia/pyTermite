@@ -194,8 +194,6 @@ class LTC_Decoder:
 
         return total_units + total_tens * 10
 
-    import matplotlib.pyplot as plt
-
     def decode_ltc(self, input_path: str, fps: int) -> None:
         base_path = ".".join(input_path.split(".")[:-1])
         audio_path = f"{base_path}.wav"
