@@ -49,7 +49,6 @@ from pytermite.lineartimecode_two import (
     LTC_Generator,
     decode_timecode_batch,
 )
-from pytermite.preview_stream import PreviewStream
 from pytermite.utils import load_serial_numbers_from_json
 
 os.environ["LANG"] = "en_US"
