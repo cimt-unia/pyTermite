@@ -126,7 +126,8 @@ async def camera_shutter(
     Parameters
     ----------
     connected_gopros : set[WiredConnection] | set[WirelessConnection]
-        A set of active WiredConnection or WirelessConnection objects representing connected cameras.
+        A set of active WiredConnection or WirelessConnection objects representing
+        connected cameras.
     mode : {"start", "stop"}, optional
         Whether to start or stop recording. Default is "start".
 

@@ -62,7 +62,8 @@ def fetch_filenames(
                 _save_entries(saved_entries)
             else:
                 logger.warning(
-                    f"Last captured of wireless {connection._identifier} could not be saved!"
+                    f"Last captured of wireless {connection._identifier} could not be "
+                    f"saved!"
                 )
 
     if serials_valid:
@@ -108,7 +109,8 @@ def fetch_recorded(
     for cam_id, entry_list in saved_entries.items():
         if cam_id not in connected_cam_ids:
             logger.info(
-                f"Camera {cam_id} has files marked for fetching, but is not connected. Skipped..."
+                f"Camera {cam_id} has files marked for fetching, but is not connected. "
+                f"Skipped..."
             )
             continue
         save_path_cam = save_path / cam_id
@@ -129,7 +131,8 @@ def fetch_recorded(
                 time.sleep(1)
             if counter >= allowed_retries:
                 logger.warning(
-                    f"Timeout: Data of {cam_id} could not be fetched. Filename: {entry['file']}"
+                    f"Timeout: Data of {cam_id} could not be fetched. Filename: "
+                    f"{entry['file']}"
                 )
                 continue
 

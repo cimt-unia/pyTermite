@@ -405,7 +405,8 @@ def connect(
 
             if skipped:
                 log.info(
-                    "Skipping BLE provisioning for cameras already provisioned for COHN",
+                    "Skipping BLE provisioning for cameras already provisioned "
+                    "for COHN",
                     identifiers=sorted(skipped),
                 )
         else:
@@ -440,7 +441,8 @@ def connect(
             )
     else:
         raise click.UsageError(
-            "Please specify a connection method: --auto, --serials, --ble, --cohn or --serials-file.",
+            "Please specify a connection method: --auto, --serials, --ble, --cohn or "
+            "--serials-file.",
         )
     if serial_numbers:
         log.debug("Serial numbers to connect to: %s", serial_numbers)
@@ -480,7 +482,8 @@ def connect(
     if failed:
         log.warning(
             f"Failed to connect to {len(failed)} of "
-            f"{len(GOPROS) + len(BLES) + len(COHN) + len(CONNECTED_GOPROS)} requested camera(s): "
+            f"{len(GOPROS) + len(BLES) + len(COHN) + len(CONNECTED_GOPROS)} "
+            f"requested camera(s): "
             f"{sorted(failed)}"
         )
     if CONNECTED_GOPROS:
@@ -656,7 +659,7 @@ def _run_generator(config: dict, stop_event: asyncio.Event) -> None:
 def _exit_handler() -> None:
     """
     Atexit handler to close connections on process exit.
-    """  # noqa: D200
+    """  # ruff: ignore[D200]
     log = logger.bind()
     log.debug("Exiting pyTermite CLI")
     log.info("Closing all connections")
