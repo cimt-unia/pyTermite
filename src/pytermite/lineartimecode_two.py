@@ -54,6 +54,7 @@ class LTC_Generator:
         sd.play(data * amplification, samplerate, device=self.device)
         sd.wait()
 
+    @staticmethod
     def print_allowed_fps(self) -> None:
         print([fps for fps in position_map.keys()])
 
@@ -157,14 +158,17 @@ class LTC_Decoder:
     def __init__(self) -> None:
         self.timecode_format = "HH:MM:SS:FF"
 
+    @staticmethod
     def _extract_audio(input_path: str, wav_path: str) -> None:
         ffmpeg.input(input_path).output(wav_path, vn=None).run(overwrite_output=True)
 
+    @staticmethod
     def _write_timecode(input_path: str, output_path: str, timecode: str) -> None:
         ffmpeg.input(input_path).output(output_path, c="copy", timecode=timecode).run(
             overwrite_output=True
         )
 
+    @staticmethod
     def _convert_position_bits(
         frame_bits: np.typing.NDArray, position: str, fps: int
     ) -> np.typing.NDArray:
