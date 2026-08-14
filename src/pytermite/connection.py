@@ -290,11 +290,10 @@ async def connect_gopros(
             )
 
 
-# TODO: Remove hardcoded WiFi credentials
 async def connect_gopros_wireless(
     gopros: dict[str, WirelessConnection],
-    ssid: str = "Nothing6",
-    password: str = "smartwatch34",
+    ssid: str,
+    password: str,
 ) -> AsyncGenerator[WirelessConnection, None]:
     """
     Attempt to open a connection to each provided :py:class:`~WirelessConnection`.
