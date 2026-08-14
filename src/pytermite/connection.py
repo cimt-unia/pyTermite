@@ -150,14 +150,35 @@ def create_wireless_gopros(
 ) -> dict[str, WirelessConnection]:
     """
     Create :py:class:`~WirelessConnection` objects for provided names.
+
+    Parameters
+    ----------
+    gopro_names : dict[str, str] | set[str]
+        Mapping from camera name to target identifier, or a set of target identifiers.
+
+    Returns
+    -------
+    dict[str, WirelessConnection]
+        Mapping from provided key (camera name or target identifier) to a
+        :py:class:`~WirelessConnection` instance.
     """
     gopros = {}
     if isinstance(gopro_names, dict):
         for cam_name, identifier in gopro_names.items():
-            gopros[cam_name] = WirelessConnection(target=identifier, interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN}, keep_alive_interval=10, maintain_state=False)
+            gopros[cam_name] = WirelessConnection(
+                target=identifier,
+                interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN},
+                keep_alive_interval=10,
+                maintain_state=False
+            )
     elif isinstance(gopro_names, set):
         for identifier in gopro_names:
-            gopros[identifier] = WirelessConnection(target=identifier, interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN}, keep_alive_interval=10, maintain_state=False)
+            gopros[identifier] = WirelessConnection(
+                target=identifier,
+                interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN},
+                keep_alive_interval=10,
+                maintain_state=False
+            )
     return gopros
 
 def load_cohn_identifiers(cohn_db_path: pathlib.Path | str = COHN_DB) -> set[str]:
@@ -165,7 +186,7 @@ def load_cohn_identifiers(cohn_db_path: pathlib.Path | str = COHN_DB) -> set[str
     Return the set of camera identifiers already provisioned for COHN.
  
     Reads the TinyDB-backed COHN credential store (as produced by
-    ``open_gopro``'s ``cohn.configure()``) and collects the ``serial`` field
+    ``open_gopro``'s ``cohn.configure()``) and collects the ``target identifier`` field
     of every entry, i.e. each camera's short identifier (the last 4 digits
     of its full serial number, e.g. ``"8157"``).
  
@@ -215,7 +236,7 @@ def create_cohn_gopros(
     Parameters
     ----------
     identifiers : set[str]
-        Camera identifiers (last 4 digits of serial number) to create
+        Camera target identifiers (last 4 digits of serial number) to create
         connections for.
     cohn_db_path : pathlib.Path | str, optional
         Path to the COHN credential database to read credentials from.
@@ -270,10 +291,7 @@ async def connect_gopros(
                 error=str(e),
             )
 
-# import logging
-# logging.getLogger("open_gopro").setLevel(logging.DEBUG)
-# logging.getLogger("open_gopro").addHandler(logging.StreamHandler())
-
+# TODO: Remove hardcoded WiFi credentials
 async def connect_gopros_wireless(
     gopros: dict[str, WirelessConnection],
     ssid: str = "Nothing6",

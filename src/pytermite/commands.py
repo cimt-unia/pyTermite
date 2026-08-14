@@ -125,8 +125,8 @@ async def camera_shutter(
 
     Parameters
     ----------
-    connected_gopros : set[WiredConnection]
-        A set of active WiredConnection objects representing connected cameras.
+    connected_gopros : set[WiredConnection] | set[WirelessConnection]
+        A set of active WiredConnection or WirelessConnection objects representing connected cameras.
     mode : {"start", "stop"}, optional
         Whether to start or stop recording. Default is "start".
 
@@ -146,6 +146,7 @@ async def camera_shutter(
         
         for connection in connected_gopros:
             if isinstance(connection, WirelessConnection):
+                # Cameras controlled via WiFi are requested using ssl certificate
                 url = f"https://{connection.ip_address}/gopro/camera/shutter/{mode}"
                 
                 ssl_context = ssl.create_default_context()
@@ -160,6 +161,7 @@ async def camera_shutter(
                 tasks.append(session.get(url, ssl=ssl_context, auth=auth))
                 
             else:
+                # Cameras controlled via USB
                 url = create_base_url(connection.identifier) + f"/shutter/{mode}"
                 tasks.append(session.get(url))
 

@@ -18,13 +18,13 @@ import enum
 import logging
 import shlex
 import os
+import time
 from pathlib import Path
 from multiprocessing import Process, Event
+from click_help_colors import HelpColorsGroup
+
 import click
 import structlog
-from click_help_colors import HelpColorsGroup
-import time
-
 from pytermite.commands import camera_shutter
 from pytermite.config import LOG_LEVEL
 from pytermite.connection import (
@@ -277,7 +277,7 @@ def cli(
 )
 def scan(timeout: int) -> None:  # numpydoc ignore=GL03
     """
-    Discover GoPro devices via USB and mDNS.
+    Discover GoPro devices via USB and mDNS and Bluetooth.
 
     \f
 
@@ -318,7 +318,7 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
 @click.option(
     "--cohn",
     "-c",
-    is_flag=True,  # <--- Added is_flag=True
+    is_flag=True,
     default=False,
     help="Using provisioned COHN devices only.",
     envvar="PYTERMITE_COHN",
@@ -350,6 +350,12 @@ def connect(
         Comma-separated serials provided on the command-line.
     serials_file : str | None
         Path to a JSON file containing serials.
+    ble : str | None
+        Comma-separated BLE names provided on the command-line.
+    cohn : bool
+        When True, only connect to COHN provisioned devices.
+    cohn_db : str
+        Path to the COHN credential database.
     """
     global GOPROS
     global BLES
@@ -424,7 +430,7 @@ def connect(
             )
     else:
         raise click.UsageError(
-            "Please specify a connection method: --auto, --serials, or --serials-file.",
+            "Please specify a connection method: --auto, --serials, --ble, --cohn or --serials-file.",
         )
     if serial_numbers:
         log.debug("Serial numbers to connect to: %s", serial_numbers)
@@ -453,7 +459,6 @@ def connect(
     log.info(f"Using BLE: {ble_names}")
     log.info(f"Using COHN: {cohn_identifiers}")
 
-    # TODO: add wireless gopros
     CONNECTED_SERIALS = serial_numbers
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
     BLES = create_wireless_gopros(gopro_names=ble_names)
@@ -480,7 +485,10 @@ def connect(
 
 
 async def _connect_to_gopros() -> None:
-    """Connect to all GoPro objects stored in the global ``GOPROS`` mapping."""
+    """
+    Connect to all GoPro objects stored in the global mappings.
+    All GoPro objects are stored in ``CONNECTED_GOPROS``.
+    """
     global GOPROS, BLES, COHN, CONNECTED_GOPROS
     async for gopro in connect_gopros_cohn(gopros=COHN):
         CONNECTED_GOPROS.add(gopro)
