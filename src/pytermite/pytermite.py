@@ -506,9 +506,10 @@ async def _connect_to_gopros() -> None:
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
         _ = GOPROS.pop(await gopro.name, None)
-    async for gopro in connect_gopros_wireless(gopros=BLES):
-        CONNECTED_GOPROS.add(gopro)
-        _ = BLES.pop(gopro.identifier, None)
+    # TODO: add ssid and password for wireless connection
+    async for gopro_wireless in connect_gopros_wireless(gopros=BLES, ssid="", password=""):
+        CONNECTED_GOPROS.add(gopro_wireless)
+        _ = BLES.pop(gopro_wireless.identifier, None)
 
 
 @cli.command()
