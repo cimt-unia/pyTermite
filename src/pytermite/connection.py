@@ -408,10 +408,8 @@ async def connect_gopros_cohn(
 
 
 async def close_gopros(
-    gopros: dict[str, WiredConnection]
-    | set[WiredConnection]
-    | dict[str, WirelessConnection]
-    | set[WirelessConnection],
+    gopros: dict[str, WiredConnection | WirelessConnection]
+    | set[WiredConnection | WirelessConnection],
 ) -> None:
     """
     Close all provided :py:class:`~WiredConnection` objects.
@@ -630,7 +628,7 @@ async def scan_for_gopros_usb() -> None:
     await logger.adebug("Finished scanning for GoPro devices via mDNS")
 
 
-async def scan_for_gopros_ble(waiting_time: int = 20) -> set[str]:
+async def scan_for_gopros_ble(waiting_time: int = 20) -> None:
     """
     Scan for BLE devices and retrieve identfier.
     """
@@ -640,7 +638,7 @@ async def scan_for_gopros_ble(waiting_time: int = 20) -> set[str]:
 
     await logger.ainfo("Start scanning for GoPro BLE devices")
 
-    def detection_callback(device: BLEDevice, advertisment_data: AdvertisementData):
+    def detection_callback(device: BLEDevice, advertisment_data: AdvertisementData) -> None:
         name = device.name or advertisment_data.local_name
         if name and token.match(name):
             cam_id = name.split()[-1]

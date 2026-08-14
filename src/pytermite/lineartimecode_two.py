@@ -6,6 +6,7 @@ Linear Time Code Generator and utilities used for injecting timecode into audio 
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
+import asyncio
 import multiprocessing
 import os
 import queue
@@ -35,7 +36,7 @@ bit_mask = {1: 0x1, 2: 0x3, 3: 0x7, 4: 0xF}
 
 
 class LTC_Generator:
-    def __init__(self, config: dict, stop_event):
+    def __init__(self, config: dict, stop_event: asyncio.Event) -> None:
         self.stop_event = stop_event
         self.sample_rate = config["sample_rate"]
         self.fps = config["fps"]
@@ -44,9 +45,9 @@ class LTC_Generator:
         self.samples_per_bit = int(self.sample_rate / self.fps / 80)
         self.total_samples = 0
         self.next_level_sign = -1
-        self.frame_queue = queue.Queue(maxsize=self.fps)
+        self.frame_queue: queue.Queue = queue.Queue(maxsize=self.fps)
 
-    def play_control_sound(self, filename: str, amplification: float = 1.0):
+    def play_control_sound(self, filename: str, amplification: float = 1.0) -> None:
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         path = os.path.join(BASE_DIR, "audios", f"{filename}.wav")
         data, samplerate = sf.read(path)
@@ -56,17 +57,17 @@ class LTC_Generator:
     def print_allowed_fps(self) -> None:
         print([fps for fps in position_map.keys()])
 
-    def generate_wav(self, duration: int = 10):
+    def generate_wav(self, filename: str, duration: int = 10) -> None:
         total_frames = self.fps * duration
-        data = []
+        data: list = []
         for _ in range(total_frames):
             word = self.create_next_bitword()
             samples = self.sample_word(word)
             data.extend(samples)
-        data = np.array(data, dtype=np.float32)
-        sf.write(f"test_{self.fps}_{duration}.wav", data, self.sample_rate)
+        data_array = np.array(data, dtype=np.float32)
+        sf.write(f"{filename}_{self.fps}_{duration}.wav", data_array, self.sample_rate)
 
-    def convert_bits(self, number: int, position: str):
+    def convert_bits(self, number: int, position: str) -> list:
         conversions = []
         units = number % 10
         tens = number // 10
@@ -119,20 +120,20 @@ class LTC_Generator:
         self.next_level_sign = 1 if level > 0 else -1
         return samples
 
-    def generate_frames(self):
+    def generate_frames(self) -> None:
         while not self.stop_event.is_set():
             word = self.create_next_bitword()
             samples = self.sample_word(word)
             self.frame_queue.put(np.array(samples, dtype=np.float32))
 
-    def callback(self, outdata, frames, time, status):  # ??? types
+    def callback(self, outdata: np.ndarray, frames: int, time: int, status: str) -> None:
         try:
             outdata[:, 0] = self.frame_queue.get_nowait()
         except queue.Empty:
             outdata[:] = 0
             return
 
-    def run(self):
+    def run(self) -> None:
         t = threading.Thread(target=self.generate_frames, daemon=True)
         t.start()
         # self.play_control_sound("start_recording")
@@ -153,20 +154,20 @@ class LTC_Generator:
 
 
 class LTC_Decoder:
-    def __init__(self):
+    def __init__(self) -> None:
         self.timecode_format = "HH:MM:SS:FF"
 
-    def _extract_audio(self, input_path: str, wav_path: str):
+    def _extract_audio(input_path: str, wav_path: str) -> None:
         ffmpeg.input(input_path).output(wav_path, vn=None).run(overwrite_output=True)
 
-    def _write_timecode(self, input_path: str, output_path: str, timecode: str):
+    def _write_timecode(input_path: str, output_path: str, timecode: str) -> None:
         ffmpeg.input(input_path).output(output_path, c="copy", timecode=timecode).run(
             overwrite_output=True
         )
 
     def _convert_position_bits(
-        self, frame_bits: np.array, position: str, fps: int
-    ) -> dict:
+        frame_bits: np.typing.NDArray, position: str, fps: int
+    ) -> np.typing.NDArray:
         units = None
         tens = None
         shift_units = position_map[fps][position]["units"]
@@ -191,7 +192,7 @@ class LTC_Decoder:
 
     import matplotlib.pyplot as plt
 
-    def decode_ltc(self, input_path: str, fps: int):
+    def decode_ltc(self, input_path: str, fps: int) -> None:
         base_path = ".".join(input_path.split(".")[:-1])
         audio_path = f"{base_path}.wav"
         video_path = f"{base_path}_timecode.mp4"
@@ -204,8 +205,8 @@ class LTC_Decoder:
         transition_diffs_short = (
             np.diff(transitions) < (samples_per_bit * 0.75)
         ).astype(int)
-        group_starts = []
-        group_lengths = []
+        group_starts: list = []
+        group_lengths: list = []
         idx_counter = 0
         while idx_counter < len(transition_diffs_short):
             if transition_diffs_short[idx_counter] == 0:
@@ -228,12 +229,12 @@ class LTC_Decoder:
                 group_lengths.append(-1)
                 idx_counter += 1
 
-        group_starts = np.array(group_starts, dtype=np.int64)
-        group_lengths = np.array(group_lengths, dtype=np.int8)
-        group_values = transition_diffs_short[group_starts]
+        group_starts_array = np.array(group_starts, dtype=np.int64)
+        group_lengths_array = np.array(group_lengths, dtype=np.int8)
+        group_values = transition_diffs_short[group_starts_array]
 
-        is_zero = (group_values == 0) & (group_lengths == 1)
-        is_one = (group_values == 1) & (group_lengths == 2)
+        is_zero = (group_values == 0) & (group_lengths_array == 1)
+        is_one = (group_values == 1) & (group_lengths_array == 2)
 
         labels = np.full(len(group_values), -1)
         labels[is_zero] = 0
@@ -270,7 +271,7 @@ class LTC_Decoder:
             == safety
         )[0][0]
 
-        group_sample_positions = transitions[group_starts]
+        group_sample_positions = transitions[group_starts_array]
         frame_sample_positions = group_sample_positions[valid_starts]
 
         video_frame_offset = frame_sample_positions[anchor_idx] / samplerate * fps
@@ -287,7 +288,7 @@ class LTC_Decoder:
         self._write_timecode(input_path, video_path, final_timecode)
 
 
-def decode_timecode_batch(decode_tasks: list, max_processes=8):
+def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
     with multiprocessing.Pool(processes=max_processes) as pool:
         results = pool.starmap(start_LTC_Decoder, decode_tasks)
     for result in results:
@@ -296,7 +297,7 @@ def decode_timecode_batch(decode_tasks: list, max_processes=8):
         print(f"Error when decoding: {result[0]}")
 
 
-def start_LTC_Decoder(input_path: str, fps=50):
+def start_LTC_Decoder(input_path: str, fps: int = 50) -> tuple[str, bool]:
     success = False
     try:
         decoder = LTC_Decoder()

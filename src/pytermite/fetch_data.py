@@ -5,8 +5,11 @@ import time
 from pathlib import Path
 
 import requests
+import structlog
 
 from pytermite.connection import WiredConnection, WirelessConnection
+
+logger = structlog.get_logger()
 
 tmp_file = "tmp_recordings.json"
 save_path = Path(__file__).parent / "tmp"
@@ -15,16 +18,13 @@ save_path = Path(__file__).parent / "tmp"
 def fetch_filenames(
     serials: dict[str, str] | set[str] | None = None,
     gopros: set[WiredConnection | WirelessConnection] | None = None,
-    logger=None,
-):
-    logger_available = logger is not None
+) -> None:
     serials_valid = not (serials is None or len(serials) < 1)
     gopros_valid = not (gopros is None or len(gopros) < 1)
     if not serials_valid and not gopros_valid:
-        if logger_available:
-            logger.warning(
-                "No connected GoPros found! Recorded data paths could not be saved"
-            )
+        logger.warning(
+            "No connected GoPros found! Recorded data paths could not be saved"
+        )
         return
 
     saved_entries = _get_saved_entries()
@@ -83,23 +83,19 @@ def fetch_filenames(
 
 def fetch_recorded(
     serials: dict[str, str] | set[str] | None = None,
-    save_path: str | None = None,
-    logger=None,
-    max_processes=8,
-    allowed_retries=10,
-):
-    logger_available = logger is not None
+    save_path: str | Path | None = None,
+    max_processes: int = 8,
+    allowed_retries: int = 10,
+) -> None:
 
     if serials is None or len(serials) < 1:
-        if logger_available:
-            logger.warning("No GoPro Connection found! Fetching data aboarded...")
+        logger.warning("No GoPro Connection found! Fetching data aboarded...")
         return
     connected_cam_ids = [serial[-4:] for serial in serials]
 
     saved_entries = _get_saved_entries()
     if len(saved_entries) < 1:
-        if logger_available:
-            logger.warning("No Files marked for fetching found!")
+        logger.warning("No Files marked for fetching found!")
         return
 
     tasks = []
@@ -111,10 +107,9 @@ def fetch_recorded(
 
     for cam_id, entry_list in saved_entries.items():
         if cam_id not in connected_cam_ids:
-            if logger_available:
-                logger.info(
-                    f"Camera {cam_id} has files marked for fetching, but is not connected. Skipped..."
-                )
+            logger.info(
+                f"Camera {cam_id} has files marked for fetching, but is not connected. Skipped..."
+            )
             continue
         save_path_cam = save_path / cam_id
         ip = f"172.2{cam_id[-3]}.1{cam_id[-2:]}.51:8080"
@@ -172,7 +167,7 @@ def fetch_recorded(
     # Process(target=decode_timecode_batch, args=(saved_video_paths,max_processes,), daemon=False).start()
 
 
-def _fetch_recoding(url, save_path_cam, filename, cam_id, idx):
+def _fetch_recoding(url: str, save_path_cam: Path, filename: str, cam_id: str, idx: int) -> tuple[str, int, bool, tuple[Path, str]]:
     response = requests.request("GET", url, stream=True)
     if response.status_code == 200:
         Path(save_path_cam).mkdir(exist_ok=True, parents=True)

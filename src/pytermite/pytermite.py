@@ -16,6 +16,7 @@ import asyncio
 import atexit
 import enum
 import logging
+import multiprocessing
 import os
 import shlex
 import time
@@ -54,7 +55,7 @@ from pytermite.utils import load_serial_numbers_from_json
 os.environ["LANG"] = "en_US"
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
-GOPROS: dict[(str, str), WiredConnection] = {}
+GOPROS: dict[str, WiredConnection] = {}
 BLES: dict[str, WirelessConnection] = {}
 COHN: dict[str, WirelessConnection] = {}
 CONNECTED_GOPROS: set[WiredConnection | WirelessConnection] = set()
@@ -344,7 +345,7 @@ def connect(
     serials_file: str | None,
     ble: str | None,
     cohn: bool,
-    cohn_db: str = COHN_DB,
+    cohn_db: Path = COHN_DB,
 ) -> None:  # numpydoc ignore=GL03
     """
     Connect to one or more GoPro devices using the selected discovery method.
@@ -456,10 +457,10 @@ def connect(
         log.debug("BLE names to connect to: %s", ble_names)
     else:
         ble_names = set()
-        for gp in BLES.values():
-            if isinstance(gp, WirelessConnection):
-                if gp.identifier is not None:
-                    ble_names.add(gp.identifier)
+        for gpw in BLES.values():
+            if isinstance(gpw, WirelessConnection):
+                if gpw.identifier is not None:
+                    ble_names.add(gpw.identifier)
 
     if cohn_identifiers:
         log.info("COHN identifiers to connect to: %s", cohn_identifiers)
@@ -499,9 +500,9 @@ async def _connect_to_gopros() -> None:
     All GoPro objects are stored in ``CONNECTED_GOPROS``.
     """
     global GOPROS, BLES, COHN, CONNECTED_GOPROS
-    async for gopro in connect_gopros_cohn(gopros=COHN):
-        CONNECTED_GOPROS.add(gopro)
-        _ = COHN.pop(gopro.identifier, None)
+    async for gopro_cohn in connect_gopros_cohn(gopros=COHN):
+        CONNECTED_GOPROS.add(gopro_cohn)
+        _ = COHN.pop(gopro_cohn.identifier, None)
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
         _ = GOPROS.pop(await gopro.name, None)
@@ -529,7 +530,7 @@ def disconnect() -> None:
         _run_repl(click.get_current_context())
 
 
-ltc_processes = []
+ltc_processes: list[tuple[Process, multiprocessing.synchronize.Event]] = []
 last_timecode_flag = False
 
 
@@ -616,7 +617,7 @@ def fetchdata(save_path: str | None) -> None:
         _run_repl(click.get_current_context())
 
 
-decode_processes = []
+decode_processes: list[Process] = []
 
 
 @cli.command()
@@ -685,7 +686,7 @@ def run_preview(serials, stop_event, logger):
     stream.preview_start()
 
 
-def _run_generator(config, stop_event):
+def _run_generator(config: dict, stop_event: asyncio.Event) -> None:
     generator = LTC_Generator(config, stop_event)
     generator.run()
 
