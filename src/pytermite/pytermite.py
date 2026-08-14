@@ -16,15 +16,16 @@ import asyncio
 import atexit
 import enum
 import logging
-import shlex
 import os
+import shlex
 import time
+from multiprocessing import Event, Process
 from pathlib import Path
-from multiprocessing import Process, Event
-from click_help_colors import HelpColorsGroup
 
 import click
 import structlog
+from click_help_colors import HelpColorsGroup
+
 from pytermite.commands import camera_shutter
 from pytermite.config import LOG_LEVEL
 from pytermite.connection import (
@@ -33,19 +34,22 @@ from pytermite.connection import (
     WirelessConnection,
     close_gopros,
     connect_gopros,
-    connect_gopros_wireless,
     connect_gopros_cohn,
+    connect_gopros_wireless,
+    create_cohn_gopros,
     create_wired_gopros,
     create_wireless_gopros,
-    create_cohn_gopros,
     load_cohn_identifiers,
     scan_for_gopros,
     scan_for_gopros_wireless,
 )
-from pytermite.utils import load_serial_numbers_from_json
-from pytermite.lineartimecode_two import LTC_Generator, start_LTC_Decoder, decode_timecode_batch
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
+from pytermite.lineartimecode_two import (
+    LTC_Generator,
+    decode_timecode_batch,
+)
 from pytermite.preview_stream import PreviewStream
+from pytermite.utils import load_serial_numbers_from_json
 
 os.environ["LANG"] = "en_US"
 
@@ -335,7 +339,12 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
     metavar="<str>",
 )
 def connect(
-    auto: bool, serials: str | None, serials_file: str | None, ble: str | None, cohn: bool, cohn_db: str = COHN_DB,
+    auto: bool,
+    serials: str | None,
+    serials_file: str | None,
+    ble: str | None,
+    cohn: bool,
+    cohn_db: str = COHN_DB,
 ) -> None:  # numpydoc ignore=GL03
     """
     Connect to one or more GoPro devices using the selected discovery method.
@@ -375,7 +384,7 @@ def connect(
         # load cohn database
         log.info("Searching for COHN provisioned GoPro cameras in database...")
         cohn_identifiers = load_cohn_identifiers(cohn_db)
-        
+
         if cohn_identifiers:
             log.info(
                 "Found cameras already provisioned for COHN. Connecting via network...",
@@ -392,7 +401,7 @@ def connect(
             if serial_numbers not in (None, set()):
                 ble_names = ble_names - {sn[-4:] for sn in serial_numbers}
                 skipped = skipped & {sn[-4:] for sn in serial_numbers}
-            
+
             if skipped:
                 log.info(
                     "Skipping BLE provisioning for cameras already provisioned for COHN",
@@ -420,7 +429,7 @@ def connect(
         log.info("Using just provisioned COHN devices...")
         # load cohn database
         cohn_identifiers = load_cohn_identifiers(cohn_db)
-        
+
         if cohn_identifiers:
             log.info(
                 "Found cameras already provisioned for COHN; connecting "
@@ -522,6 +531,8 @@ def disconnect() -> None:
 
 ltc_processes = []
 last_timecode_flag = False
+
+
 @cli.command()
 @click.option(
     "--no-timecode",
@@ -530,12 +541,14 @@ last_timecode_flag = False
     show_default=False,
     help="Deactivate the use of linear timecode",
 )
-@click.option('--device', default=None, type=int)
-@click.option('--fps', default=50, type=int)
-@click.option('--sample_rate', default=48000, type=int)
+@click.option("--device", default=None, type=int)
+@click.option("--fps", default=50, type=int)
+@click.option("--sample_rate", default=48000, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: int) -> None:  # numpydoc ignore=GL03
-    #TODO extend documentation with new options
+def record(
+    action: str, no_timecode: bool, device: int, fps: int, sample_rate: int
+) -> None:  # numpydoc ignore=GL03
+    # TODO extend documentation with new options
     """
     Start or stop recording on all currently connected GoPro cameras.
 
@@ -552,19 +565,18 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
     global CONNECTED_GOPROS
     global CONNECTED_SERIALS
     no_timecode = last_timecode_flag if action == "stop" else no_timecode
-    last_timecode_flag = (no_timecode if device is not None else True) if action == "start" else last_timecode_flag
+    last_timecode_flag = (
+        (no_timecode if device is not None else True)
+        if action == "start"
+        else last_timecode_flag
+    )
     try:
         if not no_timecode and (device is not None or action == "stop"):
             if action == "start":
-                ltc_config = {
-                    "sample_rate": sample_rate,
-                    "fps": fps,
-                    "device": device
-                }
+                ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
                 stop_event = Event()
                 ltc_process = Process(
-                    target=_run_generator,
-                    args=(ltc_config, stop_event)
+                    target=_run_generator, args=(ltc_config, stop_event)
                 )
                 ltc_process.start()
                 ltc_processes.append((ltc_process, stop_event))
@@ -574,37 +586,53 @@ def record(action: str, no_timecode: bool, device: int, fps: int, sample_rate: i
                     p[1].set()
         asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
         if action == "stop":
-            fetch_process = Process(target=fetch_filenames, args=(CONNECTED_SERIALS, CONNECTED_GOPROS, log), daemon=False)
+            fetch_process = Process(
+                target=fetch_filenames,
+                args=(CONNECTED_SERIALS, CONNECTED_GOPROS, log),
+                daemon=False,
+            )
             fetch_process.start()
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+
 @cli.command()
-@click.option('--save_path', default=None, type=click.Path())
-def fetchdata(save_path: str|None) -> None:
+@click.option("--save_path", default=None, type=click.Path())
+def fetchdata(save_path: str | None) -> None:
     global CONNECTED_SERIALS
     log = logger.bind(command="fetch_data")
     try:
-        fetch_process = Process(target=fetch_recorded, args=(CONNECTED_SERIALS, save_path, log), daemon=False)
+        fetch_process = Process(
+            target=fetch_recorded,
+            args=(CONNECTED_SERIALS, save_path, log),
+            daemon=False,
+        )
         fetch_process.start()
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+
 decode_processes = []
+
+
 @cli.command()
-@click.option('--input_path', default=None, type=click.Path())
-@click.option('--fps', default=50, type=int)
+@click.option("--input_path", default=None, type=click.Path())
+@click.option("--fps", default=50, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def decode_path(action:str, input_path: str|None, fps:int) -> None:
+def decode_path(action: str, input_path: str | None, fps: int) -> None:
     global decode_processes
     log = logger.bind(command="decode_path")
     try:
         if action == "start":
-            p = Process(target=decode_timecode_batch, args=([(input_path, fps)], 1,), daemon=False)
+            p = Process(
+                target=decode_timecode_batch,
+                args=([(input_path, fps)], 1),
+                daemon=False,
+            )
             decode_processes.append(p)
             p.start()
         elif action == "stop":
@@ -615,7 +643,10 @@ def decode_path(action:str, input_path: str|None, fps:int) -> None:
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+
 preview_processes = []
+
+
 @cli.command()
 @click.argument("action", type=click.Choice(["start", "stop"]), default=None)
 def preview_stream(action: str) -> None:
@@ -627,8 +658,7 @@ def preview_stream(action: str) -> None:
         if action == "start" and cams_available:
             stop_event = asyncio.Event()
             preview_process = Process(
-                target=run_preview,
-                 args=(CONNECTED_SERIALS, stop_event, log)
+                target=run_preview, args=(CONNECTED_SERIALS, stop_event, log)
             )
             preview_processes.append((preview_process, stop_event))
         elif action == "stop":
@@ -641,19 +671,24 @@ def preview_stream(action: str) -> None:
                 del preview_processes[i]
                 log.info(f"Stopped preview process {i}")
         else:
-            log.warning("Preview could not be started: Invalid parameters/No GoPros available")
+            log.warning(
+                "Preview could not be started: Invalid parameters/No GoPros available"
+            )
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+
 def run_preview(serials, stop_event, logger):
     stream = PreviewStream(serials, stop_event, logger)
     stream.preview_start()
 
+
 def _run_generator(config, stop_event):
     generator = LTC_Generator(config, stop_event)
     generator.run()
+
 
 def _exit_handler() -> None:
     """

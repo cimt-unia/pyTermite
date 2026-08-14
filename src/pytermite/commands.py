@@ -13,11 +13,11 @@ retrieve camera information, status and control (start/stop recording).
 #  SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import ssl
 
 import aiohttp
 import requests
 import structlog
-import ssl
 
 from pytermite.connection import WiredConnection, WirelessConnection
 from pytermite.utils import create_base_url, serialize_dict
@@ -143,23 +143,23 @@ async def camera_shutter(
 
     async with aiohttp.ClientSession() as session:
         tasks = []
-        
+
         for connection in connected_gopros:
             if isinstance(connection, WirelessConnection):
                 # Cameras controlled via WiFi are requested using ssl certificate
                 url = f"https://{connection.ip_address}/gopro/camera/shutter/{mode}"
-                
+
                 ssl_context = ssl.create_default_context()
-                
+
                 cert_string = connection.cohn.credentials.certificate
                 ssl_context.load_verify_locations(cadata=cert_string)
-                
+
                 auth = aiohttp.BasicAuth(
                     connection.cohn.credentials.username,
                     connection.cohn.credentials.password,
                 )
                 tasks.append(session.get(url, ssl=ssl_context, auth=auth))
-                
+
             else:
                 # Cameras controlled via USB
                 url = create_base_url(connection.identifier) + f"/shutter/{mode}"

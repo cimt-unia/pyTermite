@@ -6,64 +6,36 @@ Linear Time Code Generator and utilities used for injecting timecode into audio 
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
+import multiprocessing
 import os
+import queue
+import threading
+
+import ffmpeg
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
-import threading
-import queue
-import time
-import ffmpeg
-import multiprocessing
 
 position_map = {
     50: {
-        "FF": {
-            "units": (0,),
-            "tens":  (8, 10)
-        },
-        "SS": {
-            "units": (16,),
-            "tens":  (24,)
-        },
-        "MM": {
-            "units": (32,),
-            "tens":  (40,)
-        },
-        "HH": {
-            "units": (48,),
-            "tens":  (56,)
-        },
+        "FF": {"units": (0,), "tens": (8, 10)},
+        "SS": {"units": (16,), "tens": (24,)},
+        "MM": {"units": (32,), "tens": (40,)},
+        "HH": {"units": (48,), "tens": (56,)},
     },
     25: {
-        "FF": {
-            "units": (0,),
-            "tens":  (8,)
-        },
-        "SS": {
-            "units": (16,),
-            "tens":  (24,)
-        },
-        "MM": {
-            "units": (32,),
-            "tens":  (40,)
-        },
-        "HH": {
-            "units": (48,),
-            "tens":  (56,)
-        },
-    }
+        "FF": {"units": (0,), "tens": (8,)},
+        "SS": {"units": (16,), "tens": (24,)},
+        "MM": {"units": (32,), "tens": (40,)},
+        "HH": {"units": (48,), "tens": (56,)},
+    },
 }
 
-bit_mask = {
-    1: 0x1,
-    2: 0x3,
-    3: 0x7,
-    4: 0xF
-}
+bit_mask = {1: 0x1, 2: 0x3, 3: 0x7, 4: 0xF}
 
-class LTC_Generator():
-    def __init__(self, config:dict, stop_event):
+
+class LTC_Generator:
+    def __init__(self, config: dict, stop_event):
         self.stop_event = stop_event
         self.sample_rate = config["sample_rate"]
         self.fps = config["fps"]
@@ -74,7 +46,7 @@ class LTC_Generator():
         self.next_level_sign = -1
         self.frame_queue = queue.Queue(maxsize=self.fps)
 
-    def play_control_sound(self, filename: str, amplification:float=1.0):
+    def play_control_sound(self, filename: str, amplification: float = 1.0):
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         path = os.path.join(BASE_DIR, "audios", f"{filename}.wav")
         data, samplerate = sf.read(path)
@@ -84,7 +56,7 @@ class LTC_Generator():
     def print_allowed_fps(self) -> None:
         print([fps for fps in position_map.keys()])
 
-    def generate_wav(self, duration:int=10):
+    def generate_wav(self, duration: int = 10):
         total_frames = self.fps * duration
         data = []
         for _ in range(total_frames):
@@ -130,13 +102,13 @@ class LTC_Generator():
 
         return word
 
-    def sample_word(self, word:int) -> list:
+    def sample_word(self, word: int) -> list:
         samples = []
         level = self.next_level_sign * 0.75
         for i in range(80):
             start = round(i * self.samples_per_bit)
-            end   = round((i + 1) * self.samples_per_bit)
-            mid   = start + (end - start) // 2
+            end = round((i + 1) * self.samples_per_bit)
+            mid = start + (end - start) // 2
 
             bit = (word >> i) & 1
             level *= -1
@@ -153,8 +125,7 @@ class LTC_Generator():
             samples = self.sample_word(word)
             self.frame_queue.put(np.array(samples, dtype=np.float32))
 
-
-    def callback(self, outdata, frames, time, status): #??? types
+    def callback(self, outdata, frames, time, status):  # ??? types
         try:
             outdata[:, 0] = self.frame_queue.get_nowait()
         except queue.Empty:
@@ -166,52 +137,61 @@ class LTC_Generator():
         t.start()
         # self.play_control_sound("start_recording")
         while not self.stop_event.is_set():
-            with sd.OutputStream(samplerate=self.sample_rate, device=self.device, 
-                        channels=1, dtype='float32',
-                        blocksize=self.samples_per_frame,
-                        callback=self.callback):
+            with sd.OutputStream(
+                samplerate=self.sample_rate,
+                device=self.device,
+                channels=1,
+                dtype="float32",
+                blocksize=self.samples_per_frame,
+                callback=self.callback,
+            ):
                 while not self.stop_event.is_set():
                     sd.sleep(1000)
         # time.sleep(1)
-        #TODO new louder recording and manuel trigger without ltc class
+        # TODO new louder recording and manuel trigger without ltc class
         # self.play_control_sound("stop_recording", 2.0)
 
-class LTC_Decoder():
+
+class LTC_Decoder:
     def __init__(self):
         self.timecode_format = "HH:MM:SS:FF"
 
-    def _extract_audio(self, input_path:str, wav_path:str):
+    def _extract_audio(self, input_path: str, wav_path: str):
         ffmpeg.input(input_path).output(wav_path, vn=None).run(overwrite_output=True)
 
-    def _write_timecode(self, input_path:str, output_path:str, timecode:str):
-        ffmpeg.input(input_path).output(output_path,  c="copy", timecode=timecode).run(overwrite_output=True)
+    def _write_timecode(self, input_path: str, output_path: str, timecode: str):
+        ffmpeg.input(input_path).output(output_path, c="copy", timecode=timecode).run(
+            overwrite_output=True
+        )
 
-    def _convert_position_bits(self, frame_bits:np.array, position:str, fps:int) -> dict:
+    def _convert_position_bits(
+        self, frame_bits: np.array, position: str, fps: int
+    ) -> dict:
         units = None
         tens = None
         shift_units = position_map[fps][position]["units"]
         shift_tens = position_map[fps][position]["tens"]
-        
-        units = frame_bits[:, shift_units[0]:shift_units[0] + 4]
+
+        units = frame_bits[:, shift_units[0] : shift_units[0] + 4]
         total_units = units @ np.array([1, 2, 4, 8])
 
         if position in ["FF", "HH"]:
-            tens = frame_bits[:, shift_tens[0]:shift_tens[0] + 2]
+            tens = frame_bits[:, shift_tens[0] : shift_tens[0] + 2]
             total_tens = tens @ np.array([1, 2])
         else:
             if len(shift_tens) > 1:
-                tens_one = frame_bits[:, shift_tens[0]:shift_tens[0] + 2]
-                tens_two = frame_bits[:, shift_tens[1]:shift_tens[1] + 1]
+                tens_one = frame_bits[:, shift_tens[0] : shift_tens[0] + 2]
+                tens_two = frame_bits[:, shift_tens[1] : shift_tens[1] + 1]
                 tens = np.concatenate([tens_one, tens_two], axis=1)
             else:
-                tens = frame_bits[:, shift_tens[0]:shift_tens[0] + 3]
+                tens = frame_bits[:, shift_tens[0] : shift_tens[0] + 3]
             total_tens = tens @ np.array([1, 2, 4])
 
         return total_units + total_tens * 10
-            
+
     import matplotlib.pyplot as plt
 
-    def decode_ltc(self, input_path:str, fps:int):
+    def decode_ltc(self, input_path: str, fps: int):
         base_path = ".".join(input_path.split(".")[:-1])
         audio_path = f"{base_path}.wav"
         video_path = f"{base_path}_timecode.mp4"
@@ -221,7 +201,9 @@ class LTC_Decoder():
             data = data[:, 0]
         samples_per_bit = int(samplerate / fps / 80)
         transitions = np.nonzero(np.diff(np.sign(data)))[0]
-        transition_diffs_short = (np.diff(transitions) < (samples_per_bit * 0.75)).astype(int)
+        transition_diffs_short = (
+            np.diff(transitions) < (samples_per_bit * 0.75)
+        ).astype(int)
         group_starts = []
         group_lengths = []
         idx_counter = 0
@@ -230,14 +212,14 @@ class LTC_Decoder():
                 group_starts.append(idx_counter)
                 group_lengths.append(1)
                 idx_counter += 1
-            elif    (
-                        idx_counter < len(transition_diffs_short) - 1 and\
-                        transition_diffs_short[idx_counter] == 1 and\
-                        transition_diffs_short[idx_counter + 1] == 1) or\
-                    ( 
-                        transition_diffs_short[idx_counter] == 1 and\
-                        idx_counter == len(transition_diffs_short) - 1
-                    ):
+            elif (
+                idx_counter < len(transition_diffs_short) - 1
+                and transition_diffs_short[idx_counter] == 1
+                and transition_diffs_short[idx_counter + 1] == 1
+            ) or (
+                transition_diffs_short[idx_counter] == 1
+                and idx_counter == len(transition_diffs_short) - 1
+            ):
                 group_starts.append(idx_counter)
                 group_lengths.append(2)
                 idx_counter += 2
@@ -257,32 +239,36 @@ class LTC_Decoder():
         labels[is_zero] = 0
         labels[is_one] = 1
 
-        sync_word = np.array([
-            0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1
-        ], dtype=np.uint8)
-        
+        sync_word = np.array(
+            [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], dtype=np.uint8
+        )
+
         window = np.lib.stride_tricks.sliding_window_view(labels, window_shape=16)
         sync_pos = np.nonzero(np.all(window == sync_word, axis=1))[0]
         frame_starts = sync_pos - 80 + 16
-        valid_starts = frame_starts[(frame_starts >= 0) & (frame_starts + 80 <= len(labels))]
+        valid_starts = frame_starts[
+            (frame_starts >= 0) & (frame_starts + 80 <= len(labels))
+        ]
         indices = valid_starts[:, None] + np.arange(80)
         frame_bits = labels[indices]
 
         totals = {}
         for position in position_map[fps]:
             totals[position] = self._convert_position_bits(frame_bits, position, fps)
-        
-        total_frames = [h*3600*fps + m*60*fps + s*fps + f
-                        for h, m, s, f in zip(
-                            totals["HH"],
-                            totals["MM"],
-                            totals["SS"],
-                            totals["FF"]
-                    )]
+
+        total_frames = [
+            h * 3600 * fps + m * 60 * fps + s * fps + f
+            for h, m, s, f in zip(
+                totals["HH"], totals["MM"], totals["SS"], totals["FF"]
+            )
+        ]
 
         frame_diffs = np.diff(total_frames)
         safety = 10
-        anchor_idx = np.where(np.convolve(frame_diffs == 1, np.ones(safety, dtype=int), mode='valid') == safety)[0][0]
+        anchor_idx = np.where(
+            np.convolve(frame_diffs == 1, np.ones(safety, dtype=int), mode="valid")
+            == safety
+        )[0][0]
 
         group_sample_positions = transitions[group_starts]
         frame_sample_positions = group_sample_positions[valid_starts]
@@ -300,14 +286,17 @@ class LTC_Decoder():
         final_timecode = f"{h:02d}:{m:02d}:{s:02d}:{f:02d}"
         self._write_timecode(input_path, video_path, final_timecode)
 
-def decode_timecode_batch(decode_tasks:list, max_processes=8):
+
+def decode_timecode_batch(decode_tasks: list, max_processes=8):
     with multiprocessing.Pool(processes=max_processes) as pool:
         results = pool.starmap(start_LTC_Decoder, decode_tasks)
     for result in results:
-        if result[1]: continue
+        if result[1]:
+            continue
         print(f"Error when decoding: {result[0]}")
 
-def start_LTC_Decoder(input_path:str, fps=50):
+
+def start_LTC_Decoder(input_path: str, fps=50):
     success = False
     try:
         decoder = LTC_Decoder()
