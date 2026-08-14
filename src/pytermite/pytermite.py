@@ -5,7 +5,7 @@ Provides a Click-based CLI for discovering, connecting to and controlling
 multiple GoPro devices. Includes an interactive REPL for repeated commands.
 """
 
-#  Copyright (c) 2026 by Lukas Behammer
+#  Copyright (c) 2026 by Lukas Behammer, Patrick Braun, Jonas Rostan
 #  University of Augsburg
 #  Department of Computer Science
 #  Chair of Informatics for Medical Technology

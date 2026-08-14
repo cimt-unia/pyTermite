@@ -5,7 +5,7 @@ Utilities to create connection objects for GoPro devices, scan for devices over
 USB/mdns, and manage open/close life-cycle of WiredConnection objects.
 """
 
-#  Copyright (c) 2026 by Lukas Behammer
+#  Copyright (c) 2026 by Lukas Behammer, Patrick Braun, Jonas Rostan
 #  University of Augsburg
 #  Department of Computer Science
 #  Chair of Informatics for Medical Technology

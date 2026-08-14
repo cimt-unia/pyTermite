@@ -5,7 +5,7 @@ Convenience helpers that operate on sets of connected WiredConnection objects to
 retrieve camera information, status and control (start/stop recording).
 """
 
-#  Copyright (c) 2026 by Lukas Behammer
+#  Copyright (c) 2026 by Lukas Behammer, Patrick Braun, Jonas Rostan
 #  University of Augsburg
 #  Department of Computer Science
 #  Chair of Informatics for Medical Technology
