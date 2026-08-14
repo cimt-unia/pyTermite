@@ -204,7 +204,6 @@ celerybeat.pid
 # Environments
 .env
 .venv
-.venv2
 env/
 venv/
 ENV/
@@ -242,9 +241,21 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
 # Custom
 config/
 output/
-src/pytermite/tmp
 cohn_db.json
-.vscode/
