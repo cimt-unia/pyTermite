@@ -204,6 +204,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venv2
 env/
 venv/
 ENV/
@@ -244,3 +245,6 @@ cython_debug/
 # Custom
 config/
 output/
+src/pytermite/tmp
+cohn_db.json
+.vscode/

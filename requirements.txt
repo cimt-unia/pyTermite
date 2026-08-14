@@ -6,3 +6,4 @@ structlog
 rich
 click
 click-help-colors
+ffmpeg-python
