@@ -55,7 +55,7 @@ class LTC_Generator:
         sd.wait()
 
     @staticmethod
-    def print_allowed_fps(self) -> None:
+    def print_allowed_fps() -> None:
         print([fps for fps in position_map.keys()])
 
     def generate_wav(self, filename: str, duration: int = 10) -> None:
