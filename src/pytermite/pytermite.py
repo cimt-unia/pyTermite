@@ -528,6 +528,16 @@ async def _connect_to_gopros() -> None:
 
 
 @cli.command()
+def list_connected() -> None:
+    """List connected GoPros."""
+    log = logger.bind(command="list_connected")
+    log.debug("Listing connected GoPro cameras")
+    global CONNECTED_GOPROS
+    for gopro in CONNECTED_GOPROS:
+        print("GoPro: ", gopro.identifier)
+
+
+@cli.command()
 def disconnect() -> None:
     """
     Disconnect from all connected GoPro cameras.
