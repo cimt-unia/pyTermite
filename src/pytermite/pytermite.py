@@ -45,7 +45,7 @@ from pytermite.connection import (
 )
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
 from pytermite.lineartimecode import (
-    LTC_Generator,
+    LTCGenerator,
     decode_timecode_batch,
 )
 from pytermite.utils import load_serial_numbers_from_json
@@ -662,7 +662,7 @@ def decode_path(action: str, input_path: str | None, fps: int) -> None:
 
 
 def _run_generator(config: dict, stop_event: asyncio.Event) -> None:
-    generator = LTC_Generator(config, stop_event)
+    generator = LTCGenerator(config, stop_event)
     generator.run()
 
 

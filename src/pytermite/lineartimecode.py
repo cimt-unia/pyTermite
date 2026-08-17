@@ -35,7 +35,7 @@ position_map = {
 bit_mask = {1: 0x1, 2: 0x3, 3: 0x7, 4: 0xF}
 
 
-class LTC_Generator:
+class LTCGenerator:
     def __init__(self, config: dict, stop_event: asyncio.Event) -> None:
         self.stop_event = stop_event
         self.sample_rate = config["sample_rate"]
@@ -48,8 +48,8 @@ class LTC_Generator:
         self.frame_queue: queue.Queue = queue.Queue(maxsize=self.fps)
 
     def play_control_sound(self, filename: str, amplification: float = 1.0) -> None:
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(BASE_DIR, "audios", f"{filename}.wav")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(base_dir, "audios", f"{filename}.wav")
         data, samplerate = sf.read(path)
         sd.play(data * amplification, samplerate, device=self.device)
         sd.wait()
@@ -86,18 +86,18 @@ class LTC_Generator:
 
     def create_next_bitword(self) -> int:
         frame_number = self.total_samples // self.samples_per_frame
-        FF = frame_number % self.fps
-        SS = (frame_number // self.fps) % 60
-        MM = (frame_number // (self.fps * 60)) % 60
-        HH = (1 + frame_number // (self.fps * 3600)) % 24
+        ff = frame_number % self.fps
+        ss = (frame_number // self.fps) % 60
+        mm = (frame_number // (self.fps * 60)) % 60
+        hh = (1 + frame_number // (self.fps * 3600)) % 24
         self.total_samples += self.samples_per_frame
 
         word = 0
         conversions = [0b1011111111111100 << 64]
-        conversions.extend(self.convert_bits(FF, "FF"))
-        conversions.extend(self.convert_bits(SS, "SS"))
-        conversions.extend(self.convert_bits(MM, "MM"))
-        conversions.extend(self.convert_bits(HH, "HH"))
+        conversions.extend(self.convert_bits(ff, "FF"))
+        conversions.extend(self.convert_bits(ss, "SS"))
+        conversions.extend(self.convert_bits(mm, "MM"))
+        conversions.extend(self.convert_bits(hh, "HH"))
 
         for conv in conversions:
             word |= conv
@@ -156,7 +156,7 @@ class LTC_Generator:
         # self.play_control_sound("stop_recording", 2.0)
 
 
-class LTC_Decoder:
+class LTCDecoder:
     def __init__(self) -> None:
         self.timecode_format = "HH:MM:SS:FF"
 
@@ -294,17 +294,17 @@ class LTC_Decoder:
 
 def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
     with multiprocessing.Pool(processes=max_processes) as pool:
-        results = pool.starmap(start_LTC_Decoder, decode_tasks)
+        results = pool.starmap(start_ltc_decoder, decode_tasks)
     for result in results:
         if result[1]:
             continue
         print(f"Error when decoding: {result[0]}")
 
 
-def start_LTC_Decoder(input_path: str, fps: int = 50) -> tuple[str, bool]:
+def start_ltc_decoder(input_path: str, fps: int = 50) -> tuple[str, bool]:
     success = False
     try:
-        decoder = LTC_Decoder()
+        decoder = LTCDecoder()
         decoder.decode_ltc(input_path, fps)
         success = True
     finally:
