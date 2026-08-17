@@ -23,7 +23,7 @@ classifiers = [
 license = "BSD-3-Clause"
 license-files = ["LICENSE.txt"]
 dependencies = [
-    "open-gopro",
+    "open-gopro==0.22.0",
     "requests",
     "aiohttp",
     "zeroconf",
@@ -100,6 +100,14 @@ dev = [
     {include-group = "release"},
     {include-group = "tox"},
     "pre-commit"
+]
+
+
+######################################################################
+# uv
+[tool.uv]
+override-dependencies = [
+    { package = { name = "open-gopro" }, dependencies = ["packaging>=25.0"] },
 ]
 
 

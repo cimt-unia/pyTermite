@@ -1,4 +1,4 @@
-open-gopro
+open-gopro==0.22.0
 requests
 aiohttp
 zeroconf
