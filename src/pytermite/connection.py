@@ -44,7 +44,7 @@ logger = structlog.get_logger()
 
 GOPROS: set[str] = set()
 BLES: set[str] = set()
-INTERRUPT = False
+INTERRUPT = asyncio.Event()
 # Get serial_numbers path from environment variable
 SERIALS_PATH = os.getenv("PYTERMITE_SERIALS_PATH", None)
 SERIALS = (
@@ -459,7 +459,7 @@ async def wait_for_user_interrupt() -> None:
     _ = await loop.run_in_executor(None, sys.stdin.readline)
 
     global INTERRUPT
-    INTERRUPT = True
+    INTERRUPT.set()
     await logger.ainfo("User interrupt received. Stopping...")
 
 
@@ -507,7 +507,7 @@ async def scan_for_gopros(
         await logger.ainfo(f"Found {len(GOPROS)} devices")
         # Clean up
         global INTERRUPT
-        INTERRUPT = False
+        INTERRUPT.clear()
     return GOPROS, BLES
 
 
@@ -596,7 +596,7 @@ async def scan_for_gopros_usb() -> None:
     zeroconf = Zeroconf(unicast=True)
     listener = GoProListener()
     global INTERRUPT
-    while not INTERRUPT:
+    while not INTERRUPT.is_set():
         AsyncServiceBrowser(zeroconf, "_gopro-web._tcp.local.", listener)
         await logger.adebug(f"Waiting for {waiting_time} seconds before retry")
         await asyncio.sleep(waiting_time)
@@ -626,7 +626,6 @@ async def scan_for_gopros_ble() -> None:
             BLES.add(cam_id)
 
     async with BleakScanner(detection_callback=detection_callback):
-        while not INTERRUPT:
-            await asyncio.sleep(0.5)
+        await INTERRUPT.wait()
 
     await logger.adebug("Finished scanning for GoPro BLE devices")
