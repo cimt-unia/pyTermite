@@ -120,6 +120,7 @@ exclude = [
     "docs",
     "demo.py",
 ]
+output-prefer-rule-codes = true
 
 [tool.ruff.lint]
 preview = true
