@@ -56,7 +56,7 @@ class LTCGenerator:
 
     @staticmethod
     def print_allowed_fps() -> None:
-        print([fps for fps in position_map.keys()])
+        print(list(position_map.keys()))
 
     def generate_wav(self, filename: str, duration: int = 10) -> None:
         total_frames = self.fps * duration
@@ -127,9 +127,7 @@ class LTCGenerator:
             samples = self.sample_word(word)
             self.frame_queue.put(np.array(samples, dtype=np.float32))
 
-    def callback(
-        self, outdata: np.ndarray, frames: int, time: int, status: str
-    ) -> None:
+    def callback(self, outdata: np.ndarray) -> None:
         try:
             outdata[:, 0] = self.frame_queue.get_nowait()
         except queue.Empty:
@@ -264,7 +262,7 @@ class LTCDecoder:
         total_frames = [
             h * 3600 * fps + m * 60 * fps + s * fps + f
             for h, m, s, f in zip(
-                totals["HH"], totals["MM"], totals["SS"], totals["FF"]
+                totals["HH"], totals["MM"], totals["SS"], totals["FF"], strict=True
             )
         ]
 

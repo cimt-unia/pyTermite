@@ -350,8 +350,9 @@ async def connect_gopros_wireless(
 
 async def connect_gopros_cohn(
     gopros: dict[str, WirelessConnection],
-    timeout: int = 2,
+    waiting_time: int = 2,
 ) -> AsyncGenerator[WirelessConnection, None]:
+    # ruff: ignore[E501]
     """
     Attempt to open a connection to each provided COHN-only :py:class:`~WirelessConnection`.
 
@@ -366,6 +367,8 @@ async def connect_gopros_cohn(
     gopros : dict[str, WirelessConnection]
         Mapping of camera identifiers to COHN-only :py:class:`~WirelessConnection`
         objects to connect, as created by :py:func:`create_cohn_gopros`.
+    waiting_time : int, optional
+        Maximum seconds to wait until connection. Default is 2.
 
     Yields
     ------
@@ -374,9 +377,11 @@ async def connect_gopros_cohn(
     """
     for cam_name, gopro in list(gopros.items()):
         try:
-            await gopro.open(retries=1, timeout=timeout)
+            await gopro.open(retries=1, timeout=waiting_time)
             ip, port = gopro.cohn.credentials.ip_address, 443
-            await asyncio.wait_for(asyncio.open_connection(ip, port), timeout=timeout)
+            await asyncio.wait_for(
+                asyncio.open_connection(ip, port), timeout=waiting_time
+            )
         except (TimeoutError, OSError):
             await logger.ainfo(
                 "Camera unreachable via COHN (Request Timed Out)", cam_name=cam_name
@@ -386,7 +391,7 @@ async def connect_gopros_cohn(
         try:
             try:
                 await asyncio.wait_for(
-                    gopro.http_command.get_camera_state(), timeout=timeout
+                    gopro.http_command.get_camera_state(), timeout=waiting_time
                 )
                 await logger.ainfo("Successfully connected", cam_name=cam_name)
                 yield gopro
@@ -541,11 +546,11 @@ class GoProListener(ServiceListener):
             e.g. ``"C3391324497848.<type_>"``.
         """
         serial = name.split(".")[0]
+        # ruff: ignore[RUF006]
         asyncio.create_task(self._check_and_add(zc, type_, name, serial))
 
-    async def _check_and_add(
-        self, zc: Zeroconf, type_: str, name: str, serial: str
-    ) -> None:
+    @staticmethod
+    async def _check_and_add(zc: Zeroconf, type_: str, name: str, serial: str) -> None:
         info = AsyncServiceInfo(type_, name)
         if not await info.async_request(zc, timeout=3000):
             await logger.adebug(f"Could not resolve service info for {serial}")

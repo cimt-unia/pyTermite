@@ -49,7 +49,7 @@ def fetch_filenames(
             )
             try:
                 response_last = requests.request(
-                    "GET", url_last, verify=cert_path, auth=auth
+                    "GET", url_last, verify=cert_path, auth=auth, timeout=10
                 )
             finally:
                 Path(cert_path).unlink()
@@ -71,7 +71,7 @@ def fetch_filenames(
             cam_id = serial_nr[-4:]
             ip = f"172.2{serial_nr[-3]}.1{serial_nr[-2:]}.51:8080"
             url_last = f"http://{ip}/gopro/media/last_captured"
-            response_last = requests.request("GET", url_last)
+            response_last = requests.request("GET", url_last, timeout=10)
             if response_last.status_code == 200:
                 if cam_id not in saved_entries:
                     saved_entries[cam_id] = [response_last.json()]
@@ -123,7 +123,7 @@ def fetch_recorded(
 
             counter = 0
             while counter < allowed_retries:
-                response_info = requests.request("GET", url_info)
+                response_info = requests.request("GET", url_info, timeout=10)
                 if response_info.status_code == 200:
                     time.sleep(1)
                     break
@@ -173,7 +173,7 @@ def fetch_recorded(
 def _fetch_recoding(
     url: str, save_path_cam: Path, filename: str, cam_id: str, idx: int
 ) -> tuple[str, int, bool, tuple[Path, str]]:
-    response = requests.request("GET", url, stream=True)
+    response = requests.request("GET", url, stream=True, timeout=10)
     if response.status_code == 200:
         Path(save_path_cam).mkdir(exist_ok=True, parents=True)
         with Path(save_path_cam / filename).open("wb") as f:
