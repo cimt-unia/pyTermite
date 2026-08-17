@@ -28,7 +28,7 @@ import structlog
 from click_help_colors import HelpColorsGroup
 
 from pytermite.commands import camera_shutter
-from pytermite.config import LOG_LEVEL
+from pytermite.config import PYTERMITE_LOG_LEVEL, read_from_config
 from pytermite.connection import (
     COHN_DB,
     WiredConnection,
@@ -69,7 +69,7 @@ class _LineContinue(enum.StrEnum):
 
 
 structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(LOG_LEVEL),
+    wrapper_class=structlog.make_filtering_bound_logger(PYTERMITE_LOG_LEVEL),
 )
 logger = structlog.get_logger()
 
@@ -84,7 +84,7 @@ def _setup_history() -> None:
         import readline  # optional: enables convenient command-line editing and history
 
         try:
-            histfile = Path("~/.pytermite_history").expanduser()
+            histfile = Path("~/.pytermite/.history").expanduser()
             try:
                 readline.read_history_file(str(histfile))
             except Exception:
@@ -388,9 +388,10 @@ def connect(
     cohn_db = Path(cohn_db)
     if auto:
         log = log.bind(option="auto")
-        if len(GOPROS) == 0:
-            log.info("Searching for connected GoPro cameras via USB connection...")
-            serial_numbers, _ = asyncio.run(scan_for_gopros(waiting_time=5))
+        log.info("Searching for connected GoPro cameras via USB connection...")
+        serial_numbers, _ = asyncio.run(
+            scan_for_gopros(waiting_time=10, bluetooth=False)
+        )
 
         # load cohn database
         log.info("Searching for COHN provisioned GoPro cameras in database...")
@@ -404,24 +405,21 @@ def connect(
             )
 
         # bluetooth discovery
-        if len(BLES) == 0:
-            log.info("Searching for GoPro cameras via BLE connection...")
-            _, discovered_ble = asyncio.run(scan_for_gopros(waiting_time=10))
-            ble_names = discovered_ble - cohn_identifiers
-            skipped = discovered_ble & cohn_identifiers
-            if serial_numbers not in (None, set()):
-                ble_names = ble_names - {sn[-4:] for sn in serial_numbers}
-                skipped = skipped & {sn[-4:] for sn in serial_numbers}
+        log.info("Searching for GoPro cameras via BLE connection...")
+        _, discovered_ble = asyncio.run(
+            scan_for_gopros(waiting_time=10, bluetooth=True)
+        )
+        ble_names = discovered_ble - cohn_identifiers
+        skipped = discovered_ble & cohn_identifiers
+        if serial_numbers not in (None, set()):
+            ble_names = ble_names - {sn[-4:] for sn in serial_numbers}
+            skipped = skipped & {sn[-4:] for sn in serial_numbers}
 
-            if skipped:
-                log.info(
-                    "Skipping BLE provisioning for cameras already provisioned "
-                    "for COHN",
-                    identifiers=sorted(skipped),
-                )
-        else:
-            log.info("Using previously discovered GoPro cameras to connect...")
-            pass
+        if skipped:
+            log.info(
+                "Skipping BLE provisioning for cameras already provisioned for COHN",
+                identifiers=sorted(skipped),
+            )
     elif serials:
         log = log.bind(option="serials")
         log.info("Using provided serial numbers to connect to GoPro cameras...")
@@ -458,7 +456,6 @@ def connect(
         log.debug("Serial numbers to connect to: %s", serial_numbers)
     else:
         serial_numbers = set()
-        # for gp in (val for (key1, key2), val in GOPROS.items() if key2 == "target_value"):
         for gp in GOPROS.values():
             if isinstance(gp, WiredConnection):
                 if gp.serial is not None:
@@ -477,11 +474,10 @@ def connect(
     if cohn_identifiers:
         log.info("COHN identifiers to connect to: %s", cohn_identifiers)
 
-    log.info(f"Using USB: {serial_numbers}")
-    log.info(f"Using BLE: {ble_names}")
-    log.info(f"Using COHN: {cohn_identifiers}")
+    log.info(f"Using USB: {serial_numbers if serial_numbers else 'None'}")
+    log.info(f"Using BLE: {ble_names if ble_names else 'None'}")
+    log.info(f"Using COHN: {cohn_identifiers if cohn_identifiers else 'None'}")
 
-    CONNECTED_SERIALS = serial_numbers
     GOPROS = create_wired_gopros(gopro_serials=serial_numbers)
     BLES = create_wireless_gopros(gopro_names=ble_names)
     # cohn_db
@@ -510,6 +506,7 @@ def connect(
 async def _connect_to_gopros() -> None:
     """
     Connect to all GoPro objects stored in the global mappings.
+
     All GoPro objects are stored in ``CONNECTED_GOPROS``.
     """
     global GOPROS, BLES, COHN, CONNECTED_GOPROS
@@ -519,12 +516,21 @@ async def _connect_to_gopros() -> None:
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
         _ = GOPROS.pop(await gopro.name, None)
-    # TODO: add ssid and password for wireless connection
-    async for gopro_wireless in connect_gopros_wireless(
-        gopros=BLES, ssid="", password=""
-    ):
-        CONNECTED_GOPROS.add(gopro_wireless)
-        _ = BLES.pop(gopro_wireless.identifier, None)
+    if config := read_from_config():
+        cohn_config = config.get("cohn", {})
+        ssid = cohn_config.get("ssid", None)
+        password = cohn_config.get("password", None)
+
+        if not ssid and password:
+            logger.warning(
+                "Skipping connection via BLE, since no SSID and password "
+                "for provisioning are provided in the configuration file."
+            )
+            async for gopro_wireless in connect_gopros_wireless(
+                gopros=BLES, ssid=ssid, password=password
+            ):
+                CONNECTED_GOPROS.add(gopro_wireless)
+                _ = BLES.pop(gopro_wireless.identifier, None)
 
 
 @cli.command()

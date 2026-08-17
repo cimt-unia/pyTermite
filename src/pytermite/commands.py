@@ -19,9 +19,13 @@ import aiohttp
 import requests
 import structlog
 
+from pytermite.config import PYTERMITE_LOG_LEVEL
 from pytermite.connection import WiredConnection, WirelessConnection
 from pytermite.utils import create_base_url, serialize_dict
 
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(PYTERMITE_LOG_LEVEL),
+)
 logger = structlog.get_logger()
 
 TIMEOUT = 5

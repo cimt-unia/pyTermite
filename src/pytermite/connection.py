@@ -50,7 +50,12 @@ SERIALS_PATH = os.getenv("PYTERMITE_SERIALS_PATH", None)
 SERIALS = (
     load_serial_numbers_from_json(pathlib.Path(SERIALS_PATH)) if SERIALS_PATH else {}
 )
-COHN_DB = pathlib.Path(os.getenv("PYTERMITE_COHN_DB_PATH", "~/.pytermite/cohn_db.json"))
+COHN_DB = pathlib.Path(
+    os.getenv(
+        "PYTERMITE_COHN_DB_PATH",
+        pathlib.Path(os.getenv("PYTERMITE_CONFIG_PATH")) / "cohn_db.json",
+    )
+)
 USB_IP_PATTERN = re.compile(r"^172\.2[0-9]\.1[0-9]{2}\.51$")
 
 
@@ -99,9 +104,7 @@ class WiredConnection(WiredGoPro):
 
 
 class WirelessConnection(WirelessGoPro):
-    """
-    Subclass of ``WirelessGoPro`` providing a cached human-readable name.
-    """
+    """Subclass of ``WirelessGoPro`` providing a cached human-readable name."""
 
     def __init__(self, **kwargs: Any) -> None:
         target = kwargs.pop("target", None)

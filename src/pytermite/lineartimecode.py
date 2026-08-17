@@ -16,6 +16,14 @@ import ffmpeg
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
+import structlog
+
+from pytermite.config import PYTERMITE_LOG_LEVEL
+
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(PYTERMITE_LOG_LEVEL),
+)
+logger = structlog.get_logger(__name__)
 
 position_map: dict[int, dict[str, dict[str, tuple]]] = {
     50: {
@@ -296,7 +304,7 @@ def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
     for result in results:
         if result[1]:
             continue
-        print(f"Error when decoding: {result[0]}")
+        logger.warning(f"Error when decoding: {result[0]}")
 
 
 def start_ltc_decoder(input_path: str, fps: int = 50) -> tuple[str, bool]:

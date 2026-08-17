@@ -7,8 +7,12 @@ from pathlib import Path
 import requests
 import structlog
 
+from pytermite.config import PYTERMITE_LOG_LEVEL
 from pytermite.connection import WiredConnection, WirelessConnection
 
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(PYTERMITE_LOG_LEVEL),
+)
 logger = structlog.get_logger()
 
 tmp_file = "tmp_recordings.json"

@@ -1,4 +1,4 @@
-# ruff: file-ignore[non-empty-init-module]
+# ruff: file-ignore[RUF067, E402]
 """
 `pyTermite` is a small package to control multiple GoPro cameras via USB connection.
 
@@ -23,11 +23,11 @@ from importlib.metadata import PackageNotFoundError, version
 import structlog
 from bleak import BleakError, BleakScanner
 
-import pytermite.commands as commands
-import pytermite.config as config
-import pytermite.connection as connection
-import pytermite.utils as utils
+from pytermite.config import PYTERMITE_LOG_LEVEL
 
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(PYTERMITE_LOG_LEVEL),
+)
 logger = structlog.get_logger(__name__)
 
 try:
@@ -37,22 +37,47 @@ except PackageNotFoundError:
     pass
 
 
+def _set_environment() -> None:
+    config_path = os.environ.get("PYTERMITE_CONFIG_PATH")
+    if not config_path:
+        logger.debug("Setting PYTERMITE_CONFIG_PATH environment variable to "
+                     "'~/.pytermite'.")
+        os.environ["PYTERMITE_CONFIG_PATH"] = "~/.pytermite"
+    else:
+        logger.debug("PYTERMITE_CONFIG_PATH environment variable "
+                     "set to %s.", config_path)
+
+
+_set_environment()
+
+
 async def _is_bluetooth_available() -> None:
     try:
         # Try to instantiate a BleakScanner (does not require a device to be powered on)
         scanner = BleakScanner()
         await scanner.start()
         await scanner.stop()
-        await logger.adebug("Bluetooth is available.")
-        os.environ["BLUETOOTH_AVAILABLE"] = "true"
+        await logger.adebug(
+            "Bluetooth is available. Setting PYTERMITE_BLUETOOTH_AVAILABLE "
+            "environment variable."
+        )
+        os.environ["PYTERMITE_BLUETOOTH_AVAILABLE"] = "true"
     except BleakError as e:
-        await logger.adebug("Bluetooth is not available.", error=str(e))
-        os.environ["BLUETOOTH_AVAILABLE"] = "false"
+        await logger.adebug(
+            "Bluetooth is not available. Setting PYTERMITE_BLUETOOTH_AVAILABLE "
+            "environment variable.",
+            error=str(e),
+        )
+        os.environ["PYTERMITE_BLUETOOTH_AVAILABLE"] = "false"
 
 
 # Run the Bluetooth availability check asynchronously at module import time
 asyncio.run(_is_bluetooth_available())
 
+import pytermite.commands as commands
+import pytermite.config as config
+import pytermite.connection as connection
+import pytermite.utils as utils
 
 __author__ = "Lukas Behammer"
 
