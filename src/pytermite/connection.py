@@ -50,7 +50,8 @@ SERIALS_PATH = os.getenv("PYTERMITE_SERIALS_PATH", None)
 SERIALS = (
     load_serial_numbers_from_json(pathlib.Path(SERIALS_PATH)) if SERIALS_PATH else {}
 )
-COHN_DB = pathlib.Path(os.getenv("PYTERMITE_COHN_DB_PATH", "cohn_db.json"))
+COHN_DB = pathlib.Path(os.getenv("PYTERMITE_COHN_DB_PATH", "~/.pytermite/cohn_db.json"))
+USB_IP_PATTERN = re.compile(r"^172\.2[0-9]\.1[0-9]{2}\.51$")
 
 
 class WiredConnection(WiredGoPro):
@@ -454,21 +455,17 @@ async def wait_for_user_interrupt() -> None:
         print("Waiting for user input (press Enter)...")
 
     loop = asyncio.get_running_loop()
-    # if sys.platform.startswith("win32"):
-    if True:
-        _ = await loop.run_in_executor(None, sys.stdin.readline)
-    else:
-        reader = asyncio.StreamReader()
-        protocol = asyncio.StreamReaderProtocol(reader)
-        await loop.connect_read_pipe(lambda: protocol, sys.stdin)
-        _ = await reader.readline()
+
+    _ = await loop.run_in_executor(None, sys.stdin.readline)
 
     global INTERRUPT
     INTERRUPT = True
     await logger.ainfo("User interrupt received. Stopping...")
 
 
-async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
+async def scan_for_gopros(
+    waiting_time: int = 10, bluetooth: bool = False
+) -> tuple[set[str], set[str]]:
     """
     Scan for connected GoPro devices via USB connection and return a set of serials.
 
@@ -480,20 +477,27 @@ async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
     ----------
     waiting_time : int, optional
         Maximum seconds to wait for discovery. Default is 10.
+    bluetooth : bool, optional
+        Whether to also scan for BLE devices. Default is False.
 
     Returns
     -------
     set[str]
         Set of discovered device serial numbers (strings).
     """
-    global GOPROS
+    global GOPROS, BLES
     # reset state for each invocation
     GOPROS = set()
+    BLES = set()
 
     try:
-        scan_task = asyncio.create_task(scan_for_gopros_usb())
-        wait_task = asyncio.create_task(wait_for_user_interrupt())
-        tasks = [scan_task, wait_task]
+        tasks: list[asyncio.Task] = []
+        tasks.append(asyncio.create_task(scan_for_gopros_usb()))
+        if bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "true":
+            tasks.append(asyncio.create_task(scan_for_gopros_ble()))
+        elif bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "false":
+            await logger.awarning("Bluetooth is not available. Skipping BLE discovery.")
+        tasks.append(asyncio.create_task(wait_for_user_interrupt()))
         await logger.adebug("Waiting for timeout", timeout=waiting_time)
         for task in asyncio.as_completed(tasks, timeout=waiting_time):
             await task
@@ -502,38 +506,9 @@ async def scan_for_gopros(waiting_time: int = 10) -> set[str]:
     finally:
         await logger.ainfo(f"Found {len(GOPROS)} devices")
         # Clean up
-        # global INTERRUPT
-        # INTERRUPT = False
-    return GOPROS
-
-
-async def scan_for_gopros_wireless(waiting_time: int = 20) -> set[str]:
-    """
-    Scan for BLE devices and retrieve identifier.
-
-    """
-    global BLES
-    BLES = set()
-
-    try:
-        scan_task = asyncio.create_task(scan_for_gopros_ble())
-        wait_task = asyncio.create_task(wait_for_user_interrupt())
-        tasks = [scan_task, wait_task]
-        await logger.adebug("Waiting for timeout", timeout=waiting_time)
-        for task in asyncio.as_completed(tasks, timeout=waiting_time):
-            await task
-    except TimeoutError:
-        await logger.ainfo("Timeout reached. Stopping...", timeout=waiting_time)
-    finally:
-        await logger.ainfo(f"Found {len(BLES)} devices")
-        await logger.ainfo(f"Found: {BLES}")
-
         global INTERRUPT
         INTERRUPT = False
-    return BLES
-
-
-USB_IP_PATTERN = re.compile(r"^172\.2[0-9]\.1[0-9]{2}\.51$")
+    return GOPROS, BLES
 
 
 class GoProListener(ServiceListener):
@@ -628,10 +603,14 @@ async def scan_for_gopros_usb() -> None:
     await logger.adebug("Finished scanning for GoPro devices via mDNS")
 
 
-async def scan_for_gopros_ble(waiting_time: int = 20) -> None:
+async def scan_for_gopros_ble() -> None:
     """
     Scan for BLE devices and retrieve identifier.
     """
+    if os.getenv("BLUETOOTH_AVAILABLE") == "false":
+        await logger.awarning("Bluetooth is not available. Skipping BLE discovery.")
+        return
+
     token = re.compile(r"GoPro [A-Z0-9]{4}")
     global BLES
     global INTERRUPT

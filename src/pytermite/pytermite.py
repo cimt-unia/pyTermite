@@ -42,7 +42,6 @@ from pytermite.connection import (
     create_wireless_gopros,
     load_cohn_identifiers,
     scan_for_gopros,
-    scan_for_gopros_wireless,
 )
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
 from pytermite.lineartimecode_two import (
@@ -279,7 +278,15 @@ def cli(
     help="Time to wait for GoPro devices to be discovered (in seconds).",
     metavar="<int>",
 )
-def scan(timeout: int) -> None:  # numpydoc ignore=GL03
+@click.option(
+    "--bluetooth",
+    "-bt",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Search for GoPro devices via Bluetooth Low Energy (BLE) in addition to USB .",
+)
+def scan(timeout: int, bluetooth: bool) -> None:  # numpydoc ignore=GL03
     """
     Discover GoPro devices via USB and mDNS and Bluetooth.
 
@@ -289,9 +296,13 @@ def scan(timeout: int) -> None:  # numpydoc ignore=GL03
     ----------
     timeout : int
         How long to wait for discovery in seconds.
+    bluetooth : bool
+        Whether to search for devices via Bluetooth Low Energy.
     """
-    asyncio.run(scan_for_gopros(waiting_time=timeout))
-    asyncio.run(scan_for_gopros_wireless(waiting_time=timeout))
+    if bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "false":
+        logger.warning("Bluetooth is not available. Skipping BLE discovery.")
+        bluetooth = False
+    asyncio.run(scan_for_gopros(waiting_time=timeout, bluetooth=bluetooth))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -379,7 +390,7 @@ def connect(
         log = log.bind(option="auto")
         if len(GOPROS) == 0:
             log.info("Searching for connected GoPro cameras via USB connection...")
-            serial_numbers = asyncio.run(scan_for_gopros(waiting_time=5))
+            serial_numbers, _ = asyncio.run(scan_for_gopros(waiting_time=5))
 
         # load cohn database
         log.info("Searching for COHN provisioned GoPro cameras in database...")
@@ -395,7 +406,7 @@ def connect(
         # bluetooth discovery
         if len(BLES) == 0:
             log.info("Searching for GoPro cameras via BLE connection...")
-            discovered_ble = asyncio.run(scan_for_gopros_wireless(waiting_time=10))
+            _, discovered_ble = asyncio.run(scan_for_gopros(waiting_time=10))
             ble_names = discovered_ble - cohn_identifiers
             skipped = discovered_ble & cohn_identifiers
             if serial_numbers not in (None, set()):
