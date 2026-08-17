@@ -8,7 +8,7 @@ Linear Time Code Generator and utilities used for injecting timecode into audio 
 
 import asyncio
 import multiprocessing
-import os
+import pathlib
 import queue
 import threading
 
@@ -48,8 +48,8 @@ class LTCGenerator:
         self.frame_queue: queue.Queue = queue.Queue(maxsize=self.fps)
 
     def play_control_sound(self, filename: str, amplification: float = 1.0) -> None:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(base_dir, "audios", f"{filename}.wav")
+        base_dir = pathlib.Path(__file__).resolve().parent
+        path = base_dir / "audios" / f"{filename}.wav"
         data, samplerate = sf.read(path)
         sd.play(data * amplification, samplerate, device=self.device)
         sd.wait()
