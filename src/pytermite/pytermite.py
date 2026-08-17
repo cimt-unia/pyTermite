@@ -44,7 +44,7 @@ from pytermite.connection import (
     scan_for_gopros,
 )
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
-from pytermite.lineartimecode_two import (
+from pytermite.lineartimecode import (
     LTC_Generator,
     decode_timecode_batch,
 )
