@@ -16,11 +16,11 @@ import asyncio
 import atexit
 import enum
 import logging
-import multiprocessing
 import os
 import shlex
 import time
 from multiprocessing import Event, Process
+from multiprocessing.synchronize import Event as SyncEvent
 from pathlib import Path
 
 import click
@@ -535,7 +535,7 @@ def disconnect() -> None:
         _run_repl(click.get_current_context())
 
 
-ltc_processes: list[tuple[Process, multiprocessing.synchronize.Event]] = []
+ltc_processes: list[tuple[Process, SyncEvent]] = []
 last_timecode_flag = False
 
 
