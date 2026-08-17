@@ -30,8 +30,14 @@ def fetch_filenames(
     saved_entries = _get_saved_entries()
 
     if gopros_valid:
+        # ruff: ignore[S101]
+        assert gopros is not None  # for mypy
         for connection in gopros:
             if not isinstance(connection, WirelessConnection):
+                continue
+
+            if connection.cohn.credentials is None:
+                logger.warning("Connection does not have Cohn credentials.")
                 continue
 
             url_last = f"https://{connection.ip_address}/gopro/media/last_captured"
@@ -67,6 +73,8 @@ def fetch_filenames(
                 )
 
     if serials_valid:
+        # ruff: ignore[S101]
+        assert serials is not None  # for mypy
         for serial_nr in serials:
             cam_id = serial_nr[-4:]
             ip = f"172.2{serial_nr[-3]}.1{serial_nr[-2:]}.51:8080"
@@ -179,7 +187,7 @@ def _fetch_recoding(
         with Path(save_path_cam / filename).open("wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-    return (cam_id, idx, response.status_code == 200, (save_path_cam, filename))
+    return cam_id, idx, response.status_code == 200, (save_path_cam, filename)
 
 
 def _get_saved_entries() -> dict:

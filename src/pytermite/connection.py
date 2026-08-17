@@ -310,11 +310,14 @@ async def connect_gopros_wireless(
             )
             await logger.ainfo(f"Initial COHN state: {status.state}", cam_name=cam_name)
 
-            already_ready = (
-                status.status == EnumCOHNStatus.COHN_PROVISIONED
-                and status.state == EnumCOHNNetworkState.COHN_STATE_NetworkConnected
-                and gopro.cohn.credentials.ip_address != ""
-            )
+            if gopro.cohn.credentials is not None:
+                already_ready = (
+                    status.status == EnumCOHNStatus.COHN_PROVISIONED
+                    and status.state == EnumCOHNNetworkState.COHN_STATE_NetworkConnected
+                    and gopro.cohn.credentials.ip_address != ""
+                )
+            else:
+                already_ready = None
 
             if already_ready:
                 await logger.ainfo(
@@ -378,10 +381,13 @@ async def connect_gopros_cohn(
     for cam_name, gopro in list(gopros.items()):
         try:
             await gopro.open(retries=1, timeout=waiting_time)
-            ip, port = gopro.cohn.credentials.ip_address, 443
-            await asyncio.wait_for(
-                asyncio.open_connection(ip, port), timeout=waiting_time
-            )
+            if gopro.cohn.credentials is not None:
+                ip, port = gopro.cohn.credentials.ip_address, 443
+                await asyncio.wait_for(
+                    asyncio.open_connection(ip, port), timeout=waiting_time
+                )
+            else:
+                logger.warning("Connection does not have Cohn credentials.")
         except (TimeoutError, OSError):
             await logger.ainfo(
                 "Camera unreachable via COHN (Request Timed Out)", cam_name=cam_name
@@ -414,7 +420,8 @@ async def connect_gopros_cohn(
 
 
 async def close_gopros(
-    gopros: dict[str, WiredConnection | WirelessConnection]
+    gopros: dict[str, WiredConnection]
+    | dict[str, WirelessConnection]
     | set[WiredConnection | WirelessConnection],
 ) -> None:
     """
@@ -428,14 +435,15 @@ async def close_gopros(
     if isinstance(gopros, dict):
         gopros = set(gopros.values())
     for gopro in gopros:
-        await gopro.close()
         if isinstance(gopro, WiredConnection):
+            await gopro.close()
             logger.debug(
                 f"Disconnected from {await gopro.name}",
                 cam_name=await gopro.name,
                 cam_serial=gopro.identifier,
             )
         elif isinstance(gopro, WirelessConnection):
+            await gopro.close()
             logger.debug(
                 f"Disconnected from {gopro.identifier}",
                 cam_name=gopro.identifier,

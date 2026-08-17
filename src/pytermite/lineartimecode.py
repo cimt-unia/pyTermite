@@ -17,7 +17,7 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 
-position_map = {
+position_map: dict[int, dict[str, dict[str, tuple]]] = {
     50: {
         "FF": {"units": (0,), "tens": (8, 10)},
         "SS": {"units": (16,), "tens": (24,)},

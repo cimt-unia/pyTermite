@@ -563,7 +563,7 @@ last_timecode_flag = False
 @click.option("--sample_rate", default=48000, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
 def record(
-    action: str, no_timecode: bool, device: int, fps: int, sample_rate: int
+    action: str, no_timecode: bool, device: int | None, fps: int, sample_rate: int
 ) -> None:  # numpydoc ignore=GL03
     # TODO extend documentation with new options
     """

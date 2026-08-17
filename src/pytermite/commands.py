@@ -147,6 +147,10 @@ async def camera_shutter(
 
         for connection in connected_gopros:
             if isinstance(connection, WirelessConnection):
+                if connection.cohn.credentials is None:
+                    logger.warning("Connection does not have Cohn credentials.")
+                    continue
+
                 # Cameras controlled via WiFi are requested using ssl certificate
                 url = f"https://{connection.ip_address}/gopro/camera/shutter/{mode}"
 
