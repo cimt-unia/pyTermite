@@ -34,6 +34,7 @@ from open_gopro.models.proto import EnumCOHNNetworkState, EnumCOHNStatus
 from zeroconf import ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 
+from pytermite.config import resolve_config_path
 from pytermite.utils import (
     load_serial_numbers_from_json,
     reverse_dict,
@@ -45,26 +46,16 @@ logger = structlog.get_logger()
 GOPROS: set[str] = set()
 BLES: set[str] = set()
 INTERRUPT = asyncio.Event()
-SERIALS_PATH = os.getenv("PYTERMITE_SERIALS_PATH", None)
-if not SERIALS_PATH:
-    # save to set default path to "" since the environment variable is always
-    # initialized in __init__.py, so this will always be a valid path
-    CONFIG_PATH = os.getenv("PYTERMITE_CONFIG_PATH", "")
-    # Get serial_numbers path from environment variable
-    SERIALS_PATH = pathlib.Path(CONFIG_PATH) / "serials.json"
-else:
-    SERIALS_PATH = pathlib.Path(SERIALS_PATH)
+SERIALS_PATH = resolve_config_path(
+    "PYTERMITE_SERIALS_PATH",
+    default_filename="serials.json",
+)
 SERIALS = (
     load_serial_numbers_from_json(SERIALS_PATH) if SERIALS_PATH.exists() else {}
 )
-# save to set default path to "" since the environment variable is always
-# initialized in __init__.py, so this will always be a valid path
-CONFIG_PATH = os.getenv("PYTERMITE_CONFIG_PATH", "")
-COHN_DB = pathlib.Path(
-    os.getenv(
-        "PYTERMITE_COHN_DB_PATH",
-        pathlib.Path(CONFIG_PATH) / "cohn_db.json",
-    )
+COHN_DB = resolve_config_path(
+    "PYTERMITE_COHN_DB_PATH",
+    default_filename="cohn_db.json",
 )
 USB_IP_PATTERN = re.compile(r"^172\.2[0-9]\.1[0-9]{2}\.51$")
 

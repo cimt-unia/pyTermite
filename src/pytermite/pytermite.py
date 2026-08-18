@@ -28,7 +28,7 @@ import structlog
 from click_help_colors import HelpColorsGroup
 
 from pytermite.commands import camera_shutter
-from pytermite.config import PYTERMITE_LOG_LEVEL, read_from_config
+from pytermite.config import PYTERMITE_LOG_LEVEL, resolve_config_path
 from pytermite.connection import (
     COHN_DB,
     WiredConnection,
@@ -85,13 +85,13 @@ def _setup_history() -> None:
         import readline  # optional: enables convenient command-line editing and history
 
         try:
-            # save to set default path to "" since the environment variable is always
-            # initialized in __init__.py, so this will always be a valid path
-            config_path = os.environ.get("PYTERMITE_CONFIG_PATH", "")
-            histfile = Path(config_path) / ".history"
-            histfile.expanduser()
+            histfile = resolve_config_path(
+                "PYTERMITE_HISTORY_PATH",
+                default_filename=".history",
+            )
+            histfile.parent.mkdir(parents=True, exist_ok=True)
             try:
-                readline.read_history_file(histfile)
+                readline.read_history_file(str(histfile))
             except Exception:
                 # ignore history read errors
                 logger.warning(
@@ -347,7 +347,7 @@ def scan(timeout: int, bluetooth: bool) -> None:  # numpydoc ignore=GL03
 @click.option(
     "--serials-file",
     "-f",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
     help="Path to a file containing serial numbers of GoPro cameras to connect to, "
     "JSON format.",
     envvar="PYTERMITE_SERIALS_PATH",
@@ -431,10 +431,20 @@ def connect(
         serial_numbers = {s.strip() for s in serials.split(",")}
     elif serials_file:
         log = log.bind(option="serials_file")
-        log.info(
-            "Loading serial numbers from provided file to connect to GoPro cameras...",
-        )
-        serial_numbers = load_serial_numbers_from_json(serials_file)
+        serials_path = Path(serials_file)
+        if not serials_path.exists():
+            log.warning(
+                "Serials file does not exist; continuing without "
+                "preconfigured serials.",
+                file=str(serials_path),
+            )
+            serial_numbers = {}
+        else:
+            log.info(
+                "Loading serial numbers from provided file to connect to "
+                "GoPro cameras...",
+            )
+            serial_numbers = load_serial_numbers_from_json(serials_path)
     elif ble:
         log = log.bind(option="ble")
         log.info("Using provided ble names to connect to GoPro cameras...")
@@ -521,21 +531,23 @@ async def _connect_to_gopros() -> None:
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
         _ = GOPROS.pop(await gopro.name, None)
-    if config := read_from_config():
-        cohn_config = config.get("cohn", {})
-        ssid = cohn_config.get("ssid", None)
-        password = cohn_config.get("password", None)
 
-        if not ssid and password:
-            logger.warning(
-                "Skipping connection via BLE, since no SSID and password "
-                "for provisioning are provided in the configuration file."
-            )
-            async for gopro_wireless in connect_gopros_wireless(
-                gopros=BLES, ssid=ssid, password=password
-            ):
-                CONNECTED_GOPROS.add(gopro_wireless)
-                _ = BLES.pop(gopro_wireless.identifier, None)
+    ssid = os.getenv("PYTERMITE_COHN_SSID")
+    password = os.getenv("PYTERMITE_COHN_PASSWORD")
+    if ssid and password:
+        async for gopro_wireless in connect_gopros_wireless(
+            gopros=BLES,
+            ssid=ssid,
+            password=password,
+        ):
+            CONNECTED_GOPROS.add(gopro_wireless)
+            _ = BLES.pop(gopro_wireless.identifier, None)
+    elif BLES:
+        logger.warning(
+            "Skipping wireless/BLE provisioning because the required environment "
+            "variables are not set: PYTERMITE_COHN_SSID and "
+            "PYTERMITE_COHN_PASSWORD."
+        )
 
 
 @cli.command()

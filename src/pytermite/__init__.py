@@ -41,26 +41,19 @@ except PackageNotFoundError:
 def _set_environment() -> None:
     config_path = os.environ.get("PYTERMITE_CONFIG_PATH")
     if not config_path:
-        path = None
         if os.name == "nt":
-            path = os.environ.get("APPDATA")
-            if path:
-                path + "\\pytermite"
-            else:
-                path = "~\\AppData\\Roaming\\pytermite"
+            base = os.environ.get("APPDATA") or pathlib.Path(
+                r"~\AppData\Roaming"
+            ).expanduser()
+            path = pathlib.Path(base).expanduser() / "pytermite"
         elif os.name == "posix":
-            path = "~/.pytermite"
+            path = pathlib.Path("~/.pytermite").expanduser()
         else:
             logger.warning("Unsupported operating system: %s.", os.name)
-            path = "pytermite"
-        if path:
-            logger.debug(
-                "Setting PYTERMITE_CONFIG_PATH environment variable to %s.", path
-            )
-            if not pathlib.Path(path).exists():
-                logger.debug("%s does not exist. Creating directory.", path)
-                pathlib.Path(path).mkdir(parents=True, exist_ok=True)
-            os.environ["PYTERMITE_CONFIG_PATH"] = path
+            path = pathlib.Path("pytermite").expanduser()
+        logger.debug("Setting PYTERMITE_CONFIG_PATH environment variable to %s.", path)
+        path.mkdir(parents=True, exist_ok=True)
+        os.environ["PYTERMITE_CONFIG_PATH"] = str(path)
     else:
         logger.debug(
             "PYTERMITE_CONFIG_PATH environment variable set to %s.", config_path
