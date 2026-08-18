@@ -43,8 +43,7 @@ async def test_create_wired_gopros_from_set(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_connect_and_close_gopros(monkeypatch):
-    # create dummy gopro objects with open and close
-    class D:
+    class FakeWired:
         def __init__(self, serial):
             self.identifier = serial
             self.serial = serial
@@ -61,12 +60,12 @@ async def test_connect_and_close_gopros(monkeypatch):
         async def name(self):
             return self.identifier
 
-    gopros = {"a": D("S1"), "b": D("S2")}
+    monkeypatch.setattr(connection, "WiredConnection", FakeWired)
+    gopros = {"a": FakeWired("S1"), "b": FakeWired("S2")}
 
     collected = [gp async for gp in connection.connect_gopros(gopros)]
 
     assert len(collected) == 2
-    # test close
     await connection.close_gopros(gopros)
     assert all(v.closed for v in gopros.values())
 
