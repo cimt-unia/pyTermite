@@ -45,15 +45,25 @@ logger = structlog.get_logger()
 GOPROS: set[str] = set()
 BLES: set[str] = set()
 INTERRUPT = asyncio.Event()
-# Get serial_numbers path from environment variable
 SERIALS_PATH = os.getenv("PYTERMITE_SERIALS_PATH", None)
+if not SERIALS_PATH:
+    # save to set default path to "" since the environment variable is always
+    # initialized in __init__.py, so this will always be a valid path
+    CONFIG_PATH = os.getenv("PYTERMITE_CONFIG_PATH", "")
+    # Get serial_numbers path from environment variable
+    SERIALS_PATH = pathlib.Path(CONFIG_PATH) / "serials.json"
+else:
+    SERIALS_PATH = pathlib.Path(SERIALS_PATH)
 SERIALS = (
-    load_serial_numbers_from_json(pathlib.Path(SERIALS_PATH)) if SERIALS_PATH else {}
+    load_serial_numbers_from_json(SERIALS_PATH) if SERIALS_PATH.exists() else {}
 )
+# save to set default path to "" since the environment variable is always
+# initialized in __init__.py, so this will always be a valid path
+CONFIG_PATH = os.getenv("PYTERMITE_CONFIG_PATH", "")
 COHN_DB = pathlib.Path(
     os.getenv(
         "PYTERMITE_COHN_DB_PATH",
-        pathlib.Path(os.getenv("PYTERMITE_CONFIG_PATH")) / "cohn_db.json",
+        pathlib.Path(CONFIG_PATH) / "cohn_db.json",
     )
 )
 USB_IP_PATTERN = re.compile(r"^172\.2[0-9]\.1[0-9]{2}\.51$")
@@ -470,8 +480,9 @@ async def _wait_for_user_interrupt_windows() -> None:
                 return
             await asyncio.sleep(0.05)
     else:
-        raise NotImplementedError("Windows-specific function called on non-Windows "
-                                  "platform")
+        raise NotImplementedError(
+            "Windows-specific function called on non-Windows platform"
+        )
 
 
 async def _wait_for_user_interrupt_unix() -> None:

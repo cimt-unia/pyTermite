@@ -52,6 +52,7 @@ from pytermite.utils import load_serial_numbers_from_json
 
 os.environ["LANG"] = "en_US"
 
+LOG_LEVEL = PYTERMITE_LOG_LEVEL
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 GOPROS: dict[str, WiredConnection] = {}
 BLES: dict[str, WirelessConnection] = {}
@@ -84,9 +85,13 @@ def _setup_history() -> None:
         import readline  # optional: enables convenient command-line editing and history
 
         try:
-            histfile = Path("~/.pytermite/.history").expanduser()
+            # save to set default path to "" since the environment variable is always
+            # initialized in __init__.py, so this will always be a valid path
+            config_path = os.environ.get("PYTERMITE_CONFIG_PATH", "")
+            histfile = Path(config_path) / ".history"
+            histfile.expanduser()
             try:
-                readline.read_history_file(str(histfile))
+                readline.read_history_file(histfile)
             except Exception:
                 # ignore history read errors
                 logger.warning(
