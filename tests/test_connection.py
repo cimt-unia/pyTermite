@@ -5,6 +5,8 @@
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
+import asyncio
+
 import pytest
 
 from pytermite import connection
@@ -67,6 +69,32 @@ async def test_connect_and_close_gopros(monkeypatch):
     # test close
     await connection.close_gopros(gopros)
     assert all(v.closed for v in gopros.values())
+
+
+@pytest.mark.asyncio
+async def test_scan_for_gopros_cancels_interrupt_waiter_on_timeout(monkeypatch):
+    cancelled = asyncio.Event()
+
+    async def fake_scan_for_gopros_usb():
+        await asyncio.Event().wait()
+
+    async def fake_wait_for_user_interrupt():
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    monkeypatch.setattr(connection, "scan_for_gopros_usb", fake_scan_for_gopros_usb)
+    monkeypatch.setattr(
+        connection, "wait_for_user_interrupt", fake_wait_for_user_interrupt
+    )
+
+    gopros, bles = await connection.scan_for_gopros(waiting_time=0.01)
+
+    assert gopros == set()
+    assert bles == set()
+    assert cancelled.is_set()
 
 
 # @pytest.mark.asyncio

@@ -453,15 +453,65 @@ async def close_gopros(
             )
 
 
+async def _wait_for_user_interrupt_windows() -> None:
+    """
+    Wait for the user to press Enter on Windows.
+
+    Notes
+    -----
+    Polls ``msvcrt`` in short intervals so task cancellation is handled
+    cooperatively by the event loop.
+    """
+    if os.name == "nt":
+        import msvcrt
+
+        while True:
+            if msvcrt.kbhit() and msvcrt.getwch() in {"\r", "\n"}:
+                return
+            await asyncio.sleep(0.05)
+    else:
+        raise NotImplementedError("Windows-specific function called on non-Windows "
+                                  "platform")
+
+
+async def _wait_for_user_interrupt_unix() -> None:
+    """
+    Wait for the user to press Enter on Unix-like systems.
+
+    Notes
+    -----
+    Uses the event loop's ``add_reader`` API so the wait can be cancelled
+    without leaving a background stdin reader running.
+    """
+    loop = asyncio.get_running_loop()
+    input_ready = loop.create_future()
+    stdin_fd = sys.stdin.fileno()
+
+    def _on_stdin_ready() -> None:
+        if input_ready.done():
+            return
+        try:
+            _ = sys.stdin.readline()
+        except OSError as exc:
+            input_ready.set_exception(exc)
+        else:
+            input_ready.set_result(None)
+
+    loop.add_reader(stdin_fd, _on_stdin_ready)
+    try:
+        await input_ready
+    finally:
+        loop.remove_reader(stdin_fd)
+
+
 async def wait_for_user_interrupt() -> None:
     """
     Wait for the user to press Enter using a non-blocking stdin reader.
 
     Notes
     -----
-    Uses the event loop's ``add_reader`` API so the waiter can be cancelled
-    immediately (the reader is removed in the finally block). This avoids the
-    problem where awaiting a blocking input call prevents task cancellation.
+    Uses platform-specific non-blocking stdin handling so the waiter can be
+    cancelled immediately when the outer scan times out.
     """
     await logger.adebug("Waiting for user interrupt")
     try:
@@ -470,9 +520,12 @@ async def wait_for_user_interrupt() -> None:
     except RuntimeError:
         print("Waiting for user input (press Enter)...")
 
-    loop = asyncio.get_running_loop()
-
-    _ = await loop.run_in_executor(None, sys.stdin.readline)
+    if os.name == "nt":
+        await _wait_for_user_interrupt_windows()
+    elif os.name == "posix":
+        await _wait_for_user_interrupt_unix()
+    else:
+        logger.warning("Unsupported operating system: %s.", os.name)
 
     global INTERRUPT
     INTERRUPT.set()
@@ -501,13 +554,13 @@ async def scan_for_gopros(
     set[str]
         Set of discovered device serial numbers (strings).
     """
-    global GOPROS, BLES
+    global GOPROS, BLES, INTERRUPT
+    tasks: list[asyncio.Task[None]] = []
     # reset state for each invocation
     GOPROS = set()
     BLES = set()
 
     try:
-        tasks: list[asyncio.Task] = []
         tasks.append(asyncio.create_task(scan_for_gopros_usb()))
         if bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "true":
             tasks.append(asyncio.create_task(scan_for_gopros_ble()))
@@ -520,9 +573,17 @@ async def scan_for_gopros(
     except TimeoutError:
         await logger.ainfo("Timeout reached. Stopping...", timeout=waiting_time)
     finally:
-        await logger.ainfo(f"Found {len(GOPROS)} devices")
         # Clean up
-        global INTERRUPT
+        INTERRUPT.set()
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        for result in await asyncio.gather(*tasks, return_exceptions=True):
+            if isinstance(result, BaseException) and not isinstance(
+                result, asyncio.CancelledError
+            ):
+                raise result
+        await logger.ainfo(f"Found {len(GOPROS)} devices")
         INTERRUPT.clear()
     return GOPROS, BLES
 
