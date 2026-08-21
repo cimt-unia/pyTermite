@@ -179,7 +179,7 @@ ignore = [
     "RUF029",
     "S101"
 ]
-"src/pytermite/pytermite.py" = [
+"src/pytermite/cli.py" = [
     "D301",
 ]
 
