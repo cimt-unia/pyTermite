@@ -121,7 +121,7 @@ class WirelessConnection(WirelessGoPro):
     #     return self.identifier
 
 def make_gopro_request(
-    connection: WirelessConnection | WiredConnection, 
+    connection: WirelessConnection | WiredConnection,
     request_path: str,
     timeout: int = 10
     ) -> Response | None:
@@ -136,7 +136,7 @@ def make_gopro_request(
         GoPro internal http request path
     timeout: int = 10
         Timeout used for request
-    
+
     Returns
     -------
     Response | None
@@ -167,7 +167,7 @@ def make_gopro_request(
             )
         finally:
             Path(cert_path).unlink()
-    
+
     elif isinstance(connection, WiredConnection):
         try:
             url = f"http://{connection.ip_address}/{request_path}"

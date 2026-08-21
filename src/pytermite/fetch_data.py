@@ -134,7 +134,7 @@ def fetch_recorded(
         for idx, entry in enumerate(entry_list):
             for _ in range(allowed_retries):
                 response_info = make_gopro_request(
-                        connected_cams[cam_id], 
+                        connected_cams[cam_id],
                         f"gopro/media/info?path={entry['folder']}/{entry['file']}"
                     )
                 if response_info.status_code == 200: break
