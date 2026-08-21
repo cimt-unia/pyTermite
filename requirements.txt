@@ -10,3 +10,4 @@ ffmpeg-python
 numpy
 sounddevice
 soundfile
+pylsl

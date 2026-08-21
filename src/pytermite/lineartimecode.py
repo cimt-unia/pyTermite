@@ -22,6 +22,7 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 import structlog
+from pylsl import StreamInfo, StreamOutlet
 
 from pytermite.config import PYTERMITE_LOG_LEVEL
 
@@ -67,6 +68,15 @@ class LTCGenerator:
         self.total_samples = 0
         self.next_level_sign = -1
         self.frame_queue: queue.Queue = queue.Queue(maxsize=self.fps)
+        self.info = StreamInfo(
+                name='LtcStream',
+                type='Audio',
+                channel_count=1, 
+                nominal_srate=self.sample_rate,
+                channel_format='float32',
+                source_id='ltc_audio_stream'
+                )
+        self.outlet = StreamOutlet(self.info)
 
     def play_control_sound(self, filename: str, amplification: float = 1.0) -> None:
         """
@@ -176,7 +186,8 @@ class LTCGenerator:
             outdata[:, 0] = self.frame_queue.get_nowait()
         except queue.Empty:
             outdata[:] = 0
-            return
+        finally:
+            self.outlet.push_chunk(outdata.copy())
 
     def run(self) -> None:
         """
@@ -187,7 +198,6 @@ class LTCGenerator:
         """
         t = threading.Thread(target=self.generate_frames, daemon=True)
         t.start()
-        # self.play_control_sound("start_recording")
         while not self.stop_event.is_set():
             with sd.OutputStream(
                 samplerate=self.sample_rate,
@@ -199,9 +209,6 @@ class LTCGenerator:
             ):
                 while not self.stop_event.is_set():
                     sd.sleep(1000)
-        # time.sleep(1)
-        # TODO new louder recording and manuel trigger without ltc class
-        # self.play_control_sound("stop_recording", 2.0)
 
 
 class LTCDecoder:
