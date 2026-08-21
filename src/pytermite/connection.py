@@ -172,6 +172,7 @@ def create_wireless_gopros(
                 interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN},
                 keep_alive_interval=10,
                 maintain_state=False,
+                cohn_db=COHN_DB,
             )
     elif isinstance(gopro_names, set):
         for identifier in gopro_names:
@@ -180,6 +181,7 @@ def create_wireless_gopros(
                 interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN},
                 keep_alive_interval=10,
                 maintain_state=False,
+                cohn_db=COHN_DB,
             )
     return gopros
 
