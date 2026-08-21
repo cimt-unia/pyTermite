@@ -535,7 +535,7 @@ async def wait_for_user_interrupt() -> None:
 
 
 async def scan_for_gopros(
-    waiting_time: int = 10, bluetooth: bool = False
+    waiting_time: int = 10, bluetooth: bool = False, usb: bool = True
 ) -> tuple[set[str], set[str]]:
     """
     Scan for connected GoPro devices via USB connection and return a set of serials.
@@ -550,12 +550,17 @@ async def scan_for_gopros(
         Maximum seconds to wait for discovery. Default is 10.
     bluetooth : bool, optional
         Whether to also scan for BLE devices. Default is False.
+    usb : bool, optional
+        Whether to scan for USB devices. Default is True.
 
     Returns
     -------
     set[str]
         Set of discovered device serial numbers (strings).
     """
+    if not usb and not bluetooth:
+        raise ValueError("At least one of usb or bluetooth must be True")
+
     global GOPROS, BLES, INTERRUPT
     tasks: list[asyncio.Task[None]] = []
     # reset state for each invocation
@@ -563,10 +568,11 @@ async def scan_for_gopros(
     BLES = set()
 
     try:
-        tasks.append(asyncio.create_task(scan_for_gopros_usb()))
-        if bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "true":
+        if usb:
+            tasks.append(asyncio.create_task(scan_for_gopros_usb()))
+        if bluetooth and os.getenv("PYTERMITE_BLUETOOTH_AVAILABLE") == "true":
             tasks.append(asyncio.create_task(scan_for_gopros_ble()))
-        elif bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "false":
+        elif bluetooth and os.getenv("PYTERMITE_BLUETOOTH_AVAILABLE") == "false":
             await logger.awarning("Bluetooth is not available. Skipping BLE discovery.")
         tasks.append(asyncio.create_task(wait_for_user_interrupt()))
         await logger.adebug("Waiting for timeout", timeout=waiting_time)

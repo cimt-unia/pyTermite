@@ -47,7 +47,7 @@ Download = "https://github.com/cimt-unia/pyTermite/releases/latest"
 Codecov = "https://codecov.io/gh/cimt-unia/pyTermite"
 
 [project.scripts]
-pytermite = "pytermite.pytermite:cli"
+pytermite = "pytermite.cli:cli"
 
 [build-system]
 requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]

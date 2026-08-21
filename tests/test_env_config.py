@@ -16,7 +16,7 @@ warnings.filterwarnings(
 )
 
 from pytermite import config
-import pytermite.pytermite as pytermite_cli
+import pytermite.cli as pytermite_cli
 
 
 def test_resolve_config_path_uses_env_directory(monkeypatch, tmp_path):
