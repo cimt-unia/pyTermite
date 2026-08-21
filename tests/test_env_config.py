@@ -5,18 +5,19 @@
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
+import dataclasses
 import warnings
 
 import pytest
+
+import pytermite.cli as pytermite_cli
+from pytermite import config
 
 warnings.filterwarnings(
     "ignore",
     category=DeprecationWarning,
     module=r"click.*",
 )
-
-from pytermite import config
-import pytermite.cli as pytermite_cli
 
 
 def test_resolve_config_path_uses_env_directory(monkeypatch, tmp_path):
@@ -33,6 +34,7 @@ def test_resolve_config_path_uses_env_directory(monkeypatch, tmp_path):
 
 @pytest.mark.asyncio
 async def test_connect_to_gopros_reads_cohn_env_credentials(monkeypatch):
+    @dataclasses.dataclass
     class DummyWireless:
         def __init__(self, identifier: str):
             self.identifier = identifier

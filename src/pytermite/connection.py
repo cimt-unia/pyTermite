@@ -50,9 +50,7 @@ SERIALS_PATH = resolve_config_path(
     "PYTERMITE_SERIALS_PATH",
     default_filename="serials.json",
 )
-SERIALS = (
-    load_serial_numbers_from_json(SERIALS_PATH) if SERIALS_PATH.exists() else {}
-)
+SERIALS = load_serial_numbers_from_json(SERIALS_PATH) if SERIALS_PATH.exists() else {}
 COHN_DB = resolve_config_path(
     "PYTERMITE_COHN_DB_PATH",
     default_filename="cohn_db.json",

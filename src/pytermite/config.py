@@ -34,9 +34,9 @@ def default_config_dir() -> pathlib.Path:
         return pathlib.Path(config_path).expanduser()
 
     if os.name == "nt":
-        base = os.environ.get("APPDATA") or pathlib.Path(
-            r"~\AppData\Roaming"
-        ).expanduser()
+        base = (
+            os.environ.get("APPDATA") or pathlib.Path(r"~\AppData\Roaming").expanduser()
+        )
         return pathlib.Path(base).expanduser() / "pytermite"
 
     return pathlib.Path("~/.pytermite").expanduser()

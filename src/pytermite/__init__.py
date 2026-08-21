@@ -42,9 +42,10 @@ def _set_environment() -> None:
     config_path = os.environ.get("PYTERMITE_CONFIG_PATH")
     if not config_path:
         if os.name == "nt":
-            base = os.environ.get("APPDATA") or pathlib.Path(
-                r"~\AppData\Roaming"
-            ).expanduser()
+            base = (
+                os.environ.get("APPDATA")
+                or pathlib.Path(r"~\AppData\Roaming").expanduser()
+            )
             path = pathlib.Path(base).expanduser() / "pytermite"
         elif os.name == "posix":
             path = pathlib.Path("~/.pytermite").expanduser()
