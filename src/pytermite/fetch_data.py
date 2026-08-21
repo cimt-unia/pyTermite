@@ -1,3 +1,15 @@
+"""
+Video fetching and saving functions for GoPro cameras.
+
+Used to remember the last captured video on each camera
+(`WiredConnection` and `WirelessConnection`). Fetching of data is realised in parallel
+using multiprocessing, and is done using wired connections to the cameras.
+"""
+
+#  Copyright (c) 2026 by Jonas Rostan
+#
+#  SPDX-License-Identifier: BSD-3-Clause
+
 import json
 import multiprocessing
 import tempfile
@@ -23,6 +35,20 @@ def fetch_filenames(
     serials: dict[str, str] | set[str] | None = None,
     gopros: set[WiredConnection | WirelessConnection] | None = None,
 ) -> None:
+    """
+    Fetch the filenames of the last captured videos from connected GoPro cameras.
+
+    Parameters
+    ----------
+    serials : dict[str, str] | set[str] | None, optional
+        A dictionary containing camera serial numbers.
+    gopros : set[WiredConnection | WirelessConnection] | None, optional
+        A set of connected GoPro camera objects.
+
+    Notes
+    -----
+    Filenames are saved per camera in a temporary JSON file for later retrieval.
+    """
     serials_valid = not (serials is None or len(serials) < 1)
     gopros_valid = not (gopros is None or len(gopros) < 1)
     if not serials_valid and not gopros_valid:
@@ -100,7 +126,33 @@ def fetch_recorded(
     max_processes: int = 8,
     allowed_retries: int = 10,
 ) -> None:
+    """
+    Fetch recorded videos from connected GoPro cameras.
 
+    Video filenames are retrieved from the temporary JSON file created by
+    `fetch_filenames`. The videos are downloaded in parallel using multiprocessing.
+
+    Parameters
+    ----------
+    serials : dict[str, str] | set[str] | None, optional
+        A dictionary containing camera serial numbers. If no cameras are
+        connected, the function will abort.
+    save_path : str | Path | None, optional
+        The path where the fetched videos will be saved. If not provided, defaults
+        to the user's Downloads folder.
+    max_processes : int, optional
+        The maximum number of parallel processes to use for fetching videos.
+        Default is 8.
+    allowed_retries : int, optional
+        The number of times to retry fetching a video if the request fails.
+        Default is 10.
+
+    Notes
+    -----
+    The function will skip cameras that are not currently connected, even if
+    they have files marked for fetching. However, if cameras are connected, but
+    no files are marked for fetching, the function will also abort.
+    """
     if serials is None or len(serials) < 1:
         logger.warning("No GoPro Connection found! Fetching data aboarded...")
         return
@@ -178,8 +230,6 @@ def fetch_recorded(
         if not saved_entries[cam_id]:
             del saved_entries[cam_id]
     _save_entries(saved_entries)
-
-    # Process(target=decode_timecode_batch, args=(saved_video_paths,max_processes,), daemon=False).start()
 
 
 def _fetch_recoding(

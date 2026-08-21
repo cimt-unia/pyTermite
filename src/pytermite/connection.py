@@ -302,6 +302,23 @@ async def connect_gopros_wireless(
 ) -> AsyncGenerator[WirelessConnection, None]:
     """
     Attempt to open a connection to each provided :py:class:`~WirelessConnection`.
+
+    This is an async generator that yields each connected
+    :py:class:`~WirelessConnection`.
+
+    Parameters
+    ----------
+    gopros : dict[str, WirelessConnection]
+        Mapping of camera keys to :py:class:`~WirelessConnection` objects to connect.
+    ssid : str
+        SSID of the Wi-Fi network to connect the cameras to.
+    password : str
+        Password of the Wi-Fi network to connect the cameras to.
+
+    Yields
+    ------
+    WirelessConnection
+        Each successfully connected :py:class:`~WirelessConnection` object.
     """
     for cam_name, gopro in list(gopros.items()):
         try:
@@ -684,7 +701,17 @@ async def scan_for_gopros_usb() -> None:
 
 async def scan_for_gopros_ble() -> None:
     """
-    Scan for BLE devices and retrieve identifier.
+    Continuously scan for GoPro devices using Bluetooth Low Energy until interrupted.
+
+    If bluetooth is available, this function scans for BLE devices and
+    retrieves the identifier of the GoPro cameras. The identifiers are
+    accumulated in the module-level ``BLES`` set.
+
+    Notes
+    -----
+    This coroutine never returns on its own — it must be cancelled externally,
+    for example by the :py:func:`scan_for_gopros` wrapper which imposes a
+    timeout and also waits for a user interrupt.
     """
     if os.getenv("BLUETOOTH_AVAILABLE") == "false":
         await logger.awarning("Bluetooth is not available. Skipping BLE discovery.")
