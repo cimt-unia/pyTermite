@@ -58,7 +58,6 @@ GOPROS: dict[str, WiredConnection] = {}
 BLES: dict[str, WirelessConnection] = {}
 COHN: dict[str, WirelessConnection] = {}
 CONNECTED_GOPROS: set[WiredConnection | WirelessConnection] = set()
-CONNECTED_SERIALS: dict[str, str] | set[str] | None = None
 KEEP_OPEN = False
 
 
@@ -385,7 +384,6 @@ def connect(
     global GOPROS
     global BLES
     global COHN
-    global CONNECTED_SERIALS
     log = logger.bind(command="connect")
     serial_numbers: dict[str, str] | set[str] | None = None
     ble_names: dict[str, str] | set[str] | None = None
@@ -497,7 +495,6 @@ def connect(
     BLES = create_wireless_gopros(gopro_names=ble_names)
     # cohn_db
     COHN = create_cohn_gopros(identifiers=cohn_identifiers, cohn_db_path=cohn_db)
-    CONNECTED_SERIALS = serial_numbers
     asyncio.run(_connect_to_gopros())
     failed = {**GOPROS, **BLES, **COHN}
     if failed:
@@ -571,9 +568,7 @@ def disconnect() -> None:
     log = logger.bind(command="disconnect")
     log.info("Disconnecting from all connected GoPro cameras")
     global CONNECTED_GOPROS
-    global CONNECTED_SERIALS
     asyncio.run(close_gopros(gopros=CONNECTED_GOPROS))
-    CONNECTED_SERIALS = None
     CONNECTED_GOPROS = set()
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
@@ -598,7 +593,6 @@ last_timecode_flag = False
 def record(
     action: str, no_timecode: bool, device: int | None, fps: int, sample_rate: int
 ) -> None:  # numpydoc ignore=GL03
-    # TODO extend documentation with new options
     """
     Start or stop recording on all currently connected GoPro cameras.
 
@@ -613,7 +607,6 @@ def record(
     global ltc_processes
     global last_timecode_flag
     global CONNECTED_GOPROS
-    global CONNECTED_SERIALS
     no_timecode = last_timecode_flag if action == "stop" else no_timecode
     last_timecode_flag = (
         (no_timecode if device is not None else True)
@@ -638,7 +631,7 @@ def record(
         if action == "stop":
             fetch_process = Process(
                 target=fetch_filenames,
-                args=(CONNECTED_SERIALS, CONNECTED_GOPROS, log),
+                args=(CONNECTED_GOPROS, log),
                 daemon=False,
             )
             fetch_process.start()
@@ -651,12 +644,22 @@ def record(
 @cli.command()
 @click.option("--save_path", default=None, type=click.Path())
 def fetchdata(save_path: str | None) -> None:
-    global CONNECTED_SERIALS
+    """Fetch recorded media from all connected GoPro cameras.
+
+    Parameters
+    ----------
+        save_path: Directory to save the fetched media to. If None,
+            a default path is used.
+
+    Raises
+    ------
+        RuntimeError: If starting the fetch process fails.
+    """
     log = logger.bind(command="fetch_data")
     try:
         fetch_process = Process(
             target=fetch_recorded,
-            args=(CONNECTED_SERIALS, save_path, log),
+            args=(CONNECTED_GOPROS, save_path, log),
             daemon=False,
         )
         fetch_process.start()
@@ -674,6 +677,19 @@ decode_processes: list[Process] = []
 @click.option("--fps", default=50, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
 def decode_path(action: str, input_path: str | None, fps: int) -> None:
+    """Start or stop timecode decoding as a background process.
+
+    Parameters
+    ----------
+        action: Either "start" to launch a decode process or "stop" to
+            terminate all running decode processes.
+        input_path: Path to the input file
+        fps: Frame rate used for decoding
+
+    Raises
+    ------
+        RuntimeError: If starting or stopping the process fails.
+    """
     global decode_processes
     log = logger.bind(command="decode_path")
     try:
