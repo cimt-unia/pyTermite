@@ -23,7 +23,7 @@ classifiers = [
 license = "BSD-3-Clause"
 license-files = ["LICENSE.txt"]
 dependencies = [
-    "open-gopro",
+    "open-gopro==0.22.0",
     "requests",
     "aiohttp",
     "zeroconf",
@@ -31,6 +31,10 @@ dependencies = [
     "rich",
     "click",
     "click-help-colors",
+    "ffmpeg-python",
+    "numpy",
+    "sounddevice",
+    "soundfile",
 ]
 
 [project.urls]
@@ -43,7 +47,7 @@ Download = "https://github.com/cimt-unia/pyTermite/releases/latest"
 Codecov = "https://codecov.io/gh/cimt-unia/pyTermite"
 
 [project.scripts]
-pytermite = "pytermite.pytermite:cli"
+pytermite = "pytermite.cli:cli"
 
 [build-system]
 requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]
@@ -100,6 +104,14 @@ dev = [
 
 
 ######################################################################
+# uv
+[tool.uv]
+override-dependencies = [
+    { package = { name = "open-gopro" }, dependencies = ["packaging>=25.0"] },
+]
+
+
+######################################################################
 # Ruff
 [tool.ruff]
 exclude = [
@@ -108,6 +120,7 @@ exclude = [
     "docs",
     "demo.py",
 ]
+output-prefer-rule-codes = true
 
 [tool.ruff.lint]
 preview = true
@@ -152,6 +165,8 @@ ignore = [
     "W191",
     "SLF001",
     "G004",
+    "RUF106",
+    "RUF201",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -164,7 +179,7 @@ ignore = [
     "RUF029",
     "S101"
 ]
-"src/pytermite/pytermite.py" = [
+"src/pytermite/cli.py" = [
     "D301",
 ]
 
