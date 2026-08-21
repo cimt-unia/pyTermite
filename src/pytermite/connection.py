@@ -712,7 +712,8 @@ async def scan_for_gopros_ble() -> None:
             cam_id = name.split()[-1]
             BLES.add(cam_id)
 
-    async with BleakScanner(detection_callback=detection_callback):
-        await INTERRUPT.wait()
+    while not INTERRUPT.is_set():
+        async with BleakScanner(detection_callback=detection_callback):
+            await INTERRUPT.wait()
 
     await logger.adebug("Finished scanning for GoPro BLE devices")
