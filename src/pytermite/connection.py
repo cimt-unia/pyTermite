@@ -21,6 +21,7 @@ import sys
 import traceback
 from collections.abc import AsyncGenerator
 from typing import Any
+import tempfile
 
 import click
 import requests
@@ -78,6 +79,8 @@ class WiredConnection(WiredGoPro):
         super().__init__(**kwargs)
         self._name: str | None = name
         self.serial = self._serial
+        self.ip_address = f"172.2{serial_nr[-3]}.1{serial_nr[-2:]}.51:8080"
+        self._identifier = self.serial[-4:]
 
     @property
     async def name(self) -> str:
@@ -116,6 +119,62 @@ class WirelessConnection(WirelessGoPro):
     # async def identifier(self) -> str:
 
     #     return self.identifier
+
+def make_gopro_request(
+    connection: WirelessConnection | WiredConnection, 
+    request_path: str,
+    timeout: int = 10
+    ) -> Response | None:
+    """
+    Make GET request to provided GoPro Connection
+
+    Parameters
+    ----------
+    connection : WirelessConnection | WiredConnection
+        Connection Object to be used for request
+    request_path : str
+        GoPro internal http request path
+    timeout: int = 10
+        Timeout used for request
+    
+    Returns
+    -------
+    Response | None
+        Response created by made request,
+        None if no valid connection is provided
+    """
+    respose = None
+    if isinstance(connection, WirelessConnection):
+        if connection.cohn.credentials is None:
+            logger.warning("Connection does not have Cohn credentials.")
+            return
+        url = f"https://{connection.ip_address}/{request_path}"
+        cert_string = connection.cohn.credentials.certificate
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".pem"
+        ) as f:
+            f.write(cert_string)
+            cert_path = f.name
+
+        auth = (
+            connection.cohn.credentials.username,
+            connection.cohn.credentials.password,
+        )
+        try:
+            response = requests.request(
+                "GET", url, verify=cert_path, auth=auth, timeout=timeout
+            )
+        finally:
+            Path(cert_path).unlink()
+    
+    elif isinstance(connection, WiredConnection):
+        try:
+            url = f"http://{connection.ip_address}/{request_path}"
+            response = requests.request("GET", url, timeout=timeout)
+        except:
+            pass
+    return response
 
 
 def create_wired_gopros(

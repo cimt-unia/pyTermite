@@ -20,19 +20,19 @@ import requests
 import structlog
 
 from pytermite.config import PYTERMITE_LOG_LEVEL
-from pytermite.connection import WiredConnection, WirelessConnection
+from pytermite.connection import WiredConnection, WirelessConnection, make_gopro_request
 
 structlog.configure(
     wrapper_class=structlog.make_filtering_bound_logger(PYTERMITE_LOG_LEVEL),
 )
 logger = structlog.get_logger()
 
-tmp_file = "tmp_recordings.json"
-save_path = Path(__file__).parent / "tmp"
-
+FETCH_RECORDINGS = resolve_config_path(
+    "PYTERMITE_FETCH_RECORDINGS_PATH",
+    default_filename="fetch_recordings.json",
+)
 
 def fetch_filenames(
-    serials: dict[str, str] | set[str] | None = None,
     gopros: set[WiredConnection | WirelessConnection] | None = None,
 ) -> None:
     """
@@ -40,8 +40,6 @@ def fetch_filenames(
 
     Parameters
     ----------
-    serials : dict[str, str] | set[str] | None, optional
-        A dictionary containing camera serial numbers.
     gopros : set[WiredConnection | WirelessConnection] | None, optional
         A set of connected GoPro camera objects.
 
@@ -49,79 +47,33 @@ def fetch_filenames(
     -----
     Filenames are saved per camera in a temporary JSON file for later retrieval.
     """
-    serials_valid = not (serials is None or len(serials) < 1)
     gopros_valid = not (gopros is None or len(gopros) < 1)
-    if not serials_valid and not gopros_valid:
+    if not gopros_valid:
         logger.warning(
             "No connected GoPros found! Recorded data paths could not be saved"
         )
         return
 
     saved_entries = _get_saved_entries()
-
-    if gopros_valid:
-        # ruff: ignore[S101]
-        assert gopros is not None  # for mypy
-        for connection in gopros:
-            if not isinstance(connection, WirelessConnection):
-                continue
-
-            if connection.cohn.credentials is None:
-                logger.warning("Connection does not have Cohn credentials.")
-                continue
-
-            url_last = f"https://{connection.ip_address}/gopro/media/last_captured"
-            cert_string = connection.cohn.credentials.certificate
-
-            with tempfile.NamedTemporaryFile(
-                mode="w", delete=False, suffix=".pem"
-            ) as f:
-                f.write(cert_string)
-                cert_path = f.name
-
-            auth = (
-                connection.cohn.credentials.username,
-                connection.cohn.credentials.password,
+    # ruff: ignore[S101]
+    assert gopros is not None  # for mypy
+    for connection in gopros:
+        response_last = make_gopro_request(connection, "gopro/media/last_captured")
+        if response_last is not None and response_last.status_code == 200:
+            if connection._identifier not in saved_entries:
+                saved_entries[connection._identifier] = [response_last.json()]
+            else:
+                saved_entries[connection._identifier].append(response_last.json())
+            _save_entries(saved_entries)
+        else:
+            logger.warning(
+                f"Last captured of {connection._identifier} could not be "
+                f"saved!"
             )
-            try:
-                response_last = requests.request(
-                    "GET", url_last, verify=cert_path, auth=auth, timeout=10
-                )
-            finally:
-                Path(cert_path).unlink()
-
-            if response_last.status_code == 200:
-                if connection._identifier not in saved_entries:
-                    saved_entries[connection._identifier] = [response_last.json()]
-                else:
-                    saved_entries[connection._identifier].append(response_last.json())
-                _save_entries(saved_entries)
-            else:
-                logger.warning(
-                    f"Last captured of wireless {connection._identifier} could not be "
-                    f"saved!"
-                )
-
-    if serials_valid:
-        # ruff: ignore[S101]
-        assert serials is not None  # for mypy
-        for serial_nr in serials:
-            cam_id = serial_nr[-4:]
-            ip = f"172.2{serial_nr[-3]}.1{serial_nr[-2:]}.51:8080"
-            url_last = f"http://{ip}/gopro/media/last_captured"
-            response_last = requests.request("GET", url_last, timeout=10)
-            if response_last.status_code == 200:
-                if cam_id not in saved_entries:
-                    saved_entries[cam_id] = [response_last.json()]
-                else:
-                    saved_entries[cam_id].append(response_last.json())
-                _save_entries(saved_entries)
-            else:
-                logger.warning(f"Last captured of {cam_id} could not be saved!")
 
 
 def fetch_recorded(
-    serials: dict[str, str] | set[str] | None = None,
+    gopros: set[WiredConnection | WirelessConnection] | None = None,
     save_path: str | Path | None = None,
     max_processes: int = 8,
     allowed_retries: int = 10,
@@ -153,10 +105,10 @@ def fetch_recorded(
     they have files marked for fetching. However, if cameras are connected, but
     no files are marked for fetching, the function will also abort.
     """
-    if serials is None or len(serials) < 1:
+    if gopros is None or len(gopros) < 1:
         logger.warning("No GoPro Connection found! Fetching data aboarded...")
         return
-    connected_cam_ids = [serial[-4:] for serial in serials]
+    connected_cams = {connection._identifier: connection for connection in gopros}
 
     saved_entries = _get_saved_entries()
     if len(saved_entries) < 1:
@@ -171,29 +123,23 @@ def fetch_recorded(
         save_path = Path(save_path)
 
     for cam_id, entry_list in saved_entries.items():
-        if cam_id not in connected_cam_ids:
+        if cam_id not in connected_cams:
             logger.info(
                 f"Camera {cam_id} has files marked for fetching, but is not connected. "
                 f"Skipped..."
             )
             continue
         save_path_cam = save_path / cam_id
-        ip = f"172.2{cam_id[-3]}.1{cam_id[-2:]}.51:8080"
 
         for idx, entry in enumerate(entry_list):
-            url_info = (
-                f"http://{ip}/gopro/media/info?path={entry['folder']}/{entry['file']}"
-            )
-
-            counter = 0
-            while counter < allowed_retries:
-                response_info = requests.request("GET", url_info, timeout=10)
-                if response_info.status_code == 200:
-                    time.sleep(1)
-                    break
-                counter += 1
-                time.sleep(1)
-            if counter >= allowed_retries:
+            for _ in range(allowed_retries):
+                response_info = make_gopro_request(
+                        connected_cams[cam_id], 
+                        f"gopro/media/info?path={entry['folder']}/{entry['file']}"
+                    )
+                if response_info.status_code == 200: break
+                else: time.sleep(1)
+            else:
                 logger.warning(
                     f"Timeout: Data of {cam_id} could not be fetched. Filename: "
                     f"{entry['file']}"
@@ -202,7 +148,8 @@ def fetch_recorded(
 
             tasks.append(
                 (
-                    f"http://{ip}/videos/DCIM/{entry['folder']}/{entry['file']}",
+                    connected_cams[cam_id]
+                    f"videos/DCIM/{entry['folder']}/{entry['file']}",
                     save_path_cam,
                     entry["file"],
                     cam_id,
@@ -233,9 +180,14 @@ def fetch_recorded(
 
 
 def _fetch_recoding(
-    url: str, save_path_cam: Path, filename: str, cam_id: str, idx: int
+    connection: Wireless | WiredConnection,
+    request_path: str,
+    save_path_cam: Path,
+    filename: str,
+    cam_id: str,
+    idx: int
 ) -> tuple[str, int, bool, tuple[Path, str]]:
-    response = requests.request("GET", url, stream=True, timeout=10)
+    response = make_gopro_request(connection, request_path)
     if response.status_code == 200:
         Path(save_path_cam).mkdir(exist_ok=True, parents=True)
         with Path(save_path_cam / filename).open("wb") as f:
@@ -245,10 +197,9 @@ def _fetch_recoding(
 
 
 def _get_saved_entries() -> dict:
-    global tmp_file
-    global save_path
+    global FETCH_RECORDINGS
     try:
-        with Path(save_path / tmp_file).open() as f:
+        with Path(FETCH_RECORDINGS).open() as f:
             saved_entries = json.load(f)
     except FileNotFoundError:
         saved_entries = {}
@@ -256,8 +207,6 @@ def _get_saved_entries() -> dict:
 
 
 def _save_entries(saved_entries: dict) -> None:
-    global tmp_file
-    global save_path
-    save_path.mkdir(parents=True, exist_ok=True)
-    with Path(save_path / tmp_file).open("w") as f:
+    global FETCH_RECORDINGS
+    with Path(FETCH_RECORDINGS).open("w") as f:
         json.dump(saved_entries, f)
