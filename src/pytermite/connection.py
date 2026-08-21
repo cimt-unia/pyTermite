@@ -339,7 +339,7 @@ async def connect_gopros_wireless(
                     ),
                     timeout=60,
                 )
-                await logger.ainfo(result, cam_name=cam_name)
+                await logger.adebug(result, cam_name=cam_name)
 
             yield gopro
 
