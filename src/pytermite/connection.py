@@ -50,9 +50,7 @@ SERIALS_PATH = resolve_config_path(
     "PYTERMITE_SERIALS_PATH",
     default_filename="serials.json",
 )
-SERIALS = (
-    load_serial_numbers_from_json(SERIALS_PATH) if SERIALS_PATH.exists() else {}
-)
+SERIALS = load_serial_numbers_from_json(SERIALS_PATH) if SERIALS_PATH.exists() else {}
 COHN_DB = resolve_config_path(
     "PYTERMITE_COHN_DB_PATH",
     default_filename="cohn_db.json",
@@ -172,6 +170,7 @@ def create_wireless_gopros(
                 interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN},
                 keep_alive_interval=10,
                 maintain_state=False,
+                cohn_db=COHN_DB,
             )
     elif isinstance(gopro_names, set):
         for identifier in gopro_names:
@@ -180,6 +179,7 @@ def create_wireless_gopros(
                 interfaces={WirelessGoPro.Interface.BLE, WirelessGoPro.Interface.COHN},
                 keep_alive_interval=10,
                 maintain_state=False,
+                cohn_db=COHN_DB,
             )
     return gopros
 
@@ -356,7 +356,7 @@ async def connect_gopros_wireless(
                     ),
                     timeout=60,
                 )
-                await logger.ainfo(result, cam_name=cam_name)
+                await logger.adebug(result, cam_name=cam_name)
 
             yield gopro
 
@@ -552,7 +552,7 @@ async def wait_for_user_interrupt() -> None:
 
 
 async def scan_for_gopros(
-    waiting_time: int = 10, bluetooth: bool = False
+    waiting_time: int = 10, bluetooth: bool = False, usb: bool = True
 ) -> tuple[set[str], set[str]]:
     """
     Scan for connected GoPro devices via USB connection and return a set of serials.
@@ -567,12 +567,17 @@ async def scan_for_gopros(
         Maximum seconds to wait for discovery. Default is 10.
     bluetooth : bool, optional
         Whether to also scan for BLE devices. Default is False.
+    usb : bool, optional
+        Whether to scan for USB devices. Default is True.
 
     Returns
     -------
     set[str]
         Set of discovered device serial numbers (strings).
     """
+    if not usb and not bluetooth:
+        raise ValueError("At least one of usb or bluetooth must be True")
+
     global GOPROS, BLES, INTERRUPT
     tasks: list[asyncio.Task[None]] = []
     # reset state for each invocation
@@ -580,10 +585,11 @@ async def scan_for_gopros(
     BLES = set()
 
     try:
-        tasks.append(asyncio.create_task(scan_for_gopros_usb()))
-        if bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "true":
+        if usb:
+            tasks.append(asyncio.create_task(scan_for_gopros_usb()))
+        if bluetooth and os.getenv("PYTERMITE_BLUETOOTH_AVAILABLE") == "true":
             tasks.append(asyncio.create_task(scan_for_gopros_ble()))
-        elif bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "false":
+        elif bluetooth and os.getenv("PYTERMITE_BLUETOOTH_AVAILABLE") == "false":
             await logger.awarning("Bluetooth is not available. Skipping BLE discovery.")
         tasks.append(asyncio.create_task(wait_for_user_interrupt()))
         await logger.adebug("Waiting for timeout", timeout=waiting_time)
@@ -713,7 +719,7 @@ async def scan_for_gopros_ble() -> None:
     for example by the :py:func:`scan_for_gopros` wrapper which imposes a
     timeout and also waits for a user interrupt.
     """
-    if os.getenv("BLUETOOTH_AVAILABLE") == "false":
+    if os.getenv("PYTERMITE_BLUETOOTH_AVAILABLE") == "false":
         await logger.awarning("Bluetooth is not available. Skipping BLE discovery.")
         return
 
@@ -731,7 +737,8 @@ async def scan_for_gopros_ble() -> None:
             cam_id = name.split()[-1]
             BLES.add(cam_id)
 
-    async with BleakScanner(detection_callback=detection_callback):
-        await INTERRUPT.wait()
+    while not INTERRUPT.is_set():
+        async with BleakScanner(detection_callback=detection_callback):
+            await INTERRUPT.wait()
 
     await logger.adebug("Finished scanning for GoPro BLE devices")

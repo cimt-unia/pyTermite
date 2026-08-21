@@ -304,7 +304,7 @@ def scan(timeout: int, bluetooth: bool) -> None:  # numpydoc ignore=GL03
     bluetooth : bool
         Whether to search for devices via Bluetooth Low Energy.
     """
-    if bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "false":
+    if bluetooth and os.getenv("PYTERMITE_BLUETOOTH_AVAILABLE") == "false":
         logger.warning("Bluetooth is not available. Skipping BLE discovery.")
         bluetooth = False
     asyncio.run(scan_for_gopros(waiting_time=timeout, bluetooth=bluetooth))
@@ -395,7 +395,7 @@ def connect(
         log = log.bind(option="auto")
         log.info("Searching for connected GoPro cameras via USB connection...")
         serial_numbers, _ = asyncio.run(
-            scan_for_gopros(waiting_time=10, bluetooth=False)
+            scan_for_gopros(waiting_time=10, bluetooth=False, usb=True)
         )
 
         # load cohn database
@@ -412,7 +412,7 @@ def connect(
         # bluetooth discovery
         log.info("Searching for GoPro cameras via BLE connection...")
         _, discovered_ble = asyncio.run(
-            scan_for_gopros(waiting_time=10, bluetooth=True)
+            scan_for_gopros(waiting_time=10, bluetooth=True, usb=False)
         )
         ble_names = discovered_ble - cohn_identifiers
         skipped = discovered_ble & cohn_identifiers
@@ -525,23 +525,45 @@ async def _connect_to_gopros() -> None:
     All GoPro objects are stored in ``CONNECTED_GOPROS``.
     """
     global GOPROS, BLES, COHN, CONNECTED_GOPROS
+
+    def _remove_connected(
+        mapping: dict[str, WiredConnection] | dict[str, WirelessConnection],
+        connected: WiredConnection | WirelessConnection,
+    ) -> None:
+        # Remove by object identity because mapping keys can be camera names,
+        # serials, or identifiers depending on how the connection was created.
+        for key, value in mapping.items():
+            if value is connected:
+                _ = mapping.pop(key, None)
+                break
+
+    connected_cohn: list[WirelessConnection] = []
     async for gopro_cohn in connect_gopros_cohn(gopros=COHN):
         CONNECTED_GOPROS.add(gopro_cohn)
-        _ = COHN.pop(gopro_cohn.identifier, None)
+        connected_cohn.append(gopro_cohn)
+    for gopro_cohn in connected_cohn:
+        _remove_connected(COHN, gopro_cohn)
+
+    connected_wired: list[WiredConnection] = []
     async for gopro in connect_gopros(gopros=GOPROS):
         CONNECTED_GOPROS.add(gopro)
-        _ = GOPROS.pop(await gopro.name, None)
+        connected_wired.append(gopro)
+    for gopro in connected_wired:
+        _remove_connected(GOPROS, gopro)
 
     ssid = os.getenv("PYTERMITE_COHN_SSID")
     password = os.getenv("PYTERMITE_COHN_PASSWORD")
     if ssid and password:
+        connected_wireless: list[WirelessConnection] = []
         async for gopro_wireless in connect_gopros_wireless(
             gopros=BLES,
             ssid=ssid,
             password=password,
         ):
             CONNECTED_GOPROS.add(gopro_wireless)
-            _ = BLES.pop(gopro_wireless.identifier, None)
+            connected_wireless.append(gopro_wireless)
+        for gopro_wireless in connected_wireless:
+            _remove_connected(BLES, gopro_wireless)
     elif BLES:
         logger.warning(
             "Skipping wireless/BLE provisioning because the required environment "
@@ -638,7 +660,7 @@ def record(
         if action == "stop":
             fetch_process = Process(
                 target=fetch_filenames,
-                args=(CONNECTED_SERIALS, CONNECTED_GOPROS, log),
+                args=(CONNECTED_SERIALS, CONNECTED_GOPROS),
                 daemon=False,
             )
             fetch_process.start()
@@ -656,7 +678,7 @@ def fetchdata(save_path: str | None) -> None:
     try:
         fetch_process = Process(
             target=fetch_recorded,
-            args=(CONNECTED_SERIALS, save_path, log),
+            args=(CONNECTED_SERIALS, save_path),
             daemon=False,
         )
         fetch_process.start()
