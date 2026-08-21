@@ -304,7 +304,7 @@ def scan(timeout: int, bluetooth: bool) -> None:  # numpydoc ignore=GL03
     bluetooth : bool
         Whether to search for devices via Bluetooth Low Energy.
     """
-    if bluetooth and os.getenv("BLUETOOTH_AVAILABLE") == "false":
+    if bluetooth and os.getenv("PYTERMITE_BLUETOOTH_AVAILABLE") == "false":
         logger.warning("Bluetooth is not available. Skipping BLE discovery.")
         bluetooth = False
     asyncio.run(scan_for_gopros(waiting_time=timeout, bluetooth=bluetooth))

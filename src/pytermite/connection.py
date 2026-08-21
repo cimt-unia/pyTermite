@@ -686,7 +686,7 @@ async def scan_for_gopros_ble() -> None:
     """
     Scan for BLE devices and retrieve identifier.
     """
-    if os.getenv("BLUETOOTH_AVAILABLE") == "false":
+    if os.getenv("PYTERMITE_BLUETOOTH_AVAILABLE") == "false":
         await logger.awarning("Bluetooth is not available. Skipping BLE discovery.")
         return
 
