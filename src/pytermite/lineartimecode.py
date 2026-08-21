@@ -71,7 +71,7 @@ class LTCGenerator:
         self.info = StreamInfo(
                 name='LtcStream',
                 type='Audio',
-                channel_count=1, 
+                channel_count=1,
                 nominal_srate=self.sample_rate,
                 channel_format='float32',
                 source_id='ltc_audio_stream'
