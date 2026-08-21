@@ -1,5 +1,10 @@
 """
-Linear Time Code Generator and utilities used for injecting timecode into audio track.
+Linear Time Code (LTC) Generator and utilities used for injecting timecode.
+
+LTC can by generated at several frame rates (25, 50).
+
+A Decoder is also provided to extract the timecode from a video file and
+write it into the metadata of the video file.
 """
 
 #  Copyright (c) 2026 by Jonas Rostan
@@ -44,6 +49,14 @@ bit_mask = {1: 0x1, 2: 0x3, 3: 0x7, 4: 0xF}
 
 
 class LTCGenerator:
+    """
+    A generator for creating Linear Time Code (LTC) signals at various frame rates.
+
+    LTC contains timecode information in the format HH:MM:SS:FF,
+    where HH is hours, MM is minutes, SS is seconds, and FF is frames. It also
+    includes a sync word for synchronization.
+    """
+
     def __init__(self, config: dict, stop_event: asyncio.Event) -> None:
         self.stop_event = stop_event
         self.sample_rate = config["sample_rate"]
@@ -56,6 +69,12 @@ class LTCGenerator:
         self.frame_queue: queue.Queue = queue.Queue(maxsize=self.fps)
 
     def play_control_sound(self, filename: str, amplification: float = 1.0) -> None:
+        """
+        GoPros may be controlled using voice activation.
+
+        This function plays control sounds for starting and stopping recording.
+        The sounds are pre-recorded and stored in the 'audios' directory.
+        """
         base_dir = pathlib.Path(__file__).resolve().parent
         path = base_dir / "audios" / f"{filename}.wav"
         data, samplerate = sf.read(path)
@@ -64,9 +83,11 @@ class LTCGenerator:
 
     @staticmethod
     def print_allowed_fps() -> None:
+        """Return the allowed frame rates for LTC generation."""
         print(list(position_map.keys()))
 
     def generate_wav(self, filename: str, duration: int = 10) -> None:
+        """Debug function to generate a wav file with LTC for a given duration."""
         total_frames = self.fps * duration
         data: list = []
         for _ in range(total_frames):
@@ -77,6 +98,12 @@ class LTCGenerator:
         sf.write(f"{filename}_{self.fps}_{duration}.wav", data_array, self.sample_rate)
 
     def convert_bits(self, number: int, position: str) -> list:
+        """
+        Convert a number into its corresponding bit representation.
+
+        Convert into representation for a given position in the LTC frame
+        (FF, SS, MM, HH).
+        """
         conversions = []
         units = number % 10
         tens = number // 10
@@ -93,6 +120,7 @@ class LTCGenerator:
         return conversions
 
     def create_next_bitword(self) -> int:
+        """Create the next 80-bit word for the LTC based on the current timecode."""
         frame_number = self.total_samples // self.samples_per_frame
         ff = frame_number % self.fps
         ss = (frame_number // self.fps) % 60
@@ -113,6 +141,7 @@ class LTCGenerator:
         return word
 
     def sample_word(self, word: int) -> list:
+        """Sample the 80-bit word into a list of audio samples for the LTC signal."""
         samples = []
         level = self.next_level_sign * 0.75
         for i in range(80):
@@ -130,12 +159,19 @@ class LTCGenerator:
         return samples
 
     def generate_frames(self) -> None:
+        """
+        Pipeline for generating LTC frames.
+
+        This function continuously generates LTC frames and puts them into a queue
+        until stopped.
+        """
         while not self.stop_event.is_set():
             word = self.create_next_bitword()
             samples = self.sample_word(word)
             self.frame_queue.put(np.array(samples, dtype=np.float32))
 
     def callback(self, outdata: np.ndarray) -> None:
+        """Retrieve the next LTC frame from the queue and write to the output buffer."""
         try:
             outdata[:, 0] = self.frame_queue.get_nowait()
         except queue.Empty:
@@ -143,6 +179,12 @@ class LTCGenerator:
             return
 
     def run(self) -> None:
+        """
+        Start the LTC generation process.
+
+        It initializes a separate thread for generating frames and manages
+        the audio output stream.
+        """
         t = threading.Thread(target=self.generate_frames, daemon=True)
         t.start()
         # self.play_control_sound("start_recording")
@@ -163,6 +205,13 @@ class LTCGenerator:
 
 
 class LTCDecoder:
+    """
+    Class for decoding Linear Time Code (LTC) from audio tracks in video files.
+
+    It extracts the timecode from the audio and writes it into the metadata of
+    the video file.
+    """
+
     def __init__(self) -> None:
         self.timecode_format = "HH:MM:SS:FF"
 
@@ -203,6 +252,11 @@ class LTCDecoder:
         return total_units + total_tens * 10
 
     def decode_ltc(self, input_path: str, fps: int) -> None:
+        """
+        Decode the LTC signal from the already extracted audio track of a video file.
+
+        Write the extracted timecode into the metadata of the video file after decoding.
+        """
         base_path = ".".join(input_path.split(".")[:-1])
         audio_path = f"{base_path}.wav"
         video_path = f"{base_path}_timecode.mp4"
@@ -299,6 +353,7 @@ class LTCDecoder:
 
 
 def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
+    """Decode LTC timecode from a batch of video files using multiprocessing."""
     with multiprocessing.Pool(processes=max_processes) as pool:
         results = pool.starmap(start_ltc_decoder, decode_tasks)
     for result in results:
@@ -308,10 +363,12 @@ def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
 
 
 def start_ltc_decoder(input_path: str, fps: int = 50) -> tuple[str, bool]:
+    """Start the LTC decoder for a given video file and frame rate."""
     success = False
     try:
         decoder = LTCDecoder()
         decoder.decode_ltc(input_path, fps)
         success = True
-    finally:
-        return (input_path, success)
+    except Exception as e:
+        logger.warning(f"Error when decoding: {input_path}, {e}")
+    return (input_path, success)

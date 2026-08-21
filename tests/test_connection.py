@@ -96,6 +96,39 @@ async def test_scan_for_gopros_cancels_interrupt_waiter_on_timeout(monkeypatch):
     assert cancelled.is_set()
 
 
+@pytest.mark.asyncio
+async def test_scan_for_gopros_can_skip_usb_scan(monkeypatch):
+    usb_called = asyncio.Event()
+    ble_called = asyncio.Event()
+
+    async def fake_scan_for_gopros_usb():
+        usb_called.set()
+        await asyncio.Event().wait()
+
+    async def fake_scan_for_gopros_ble():
+        ble_called.set()
+        await asyncio.Event().wait()
+
+    async def fake_wait_for_user_interrupt():
+        await asyncio.Event().wait()
+
+    monkeypatch.setenv("PYTERMITE_BLUETOOTH_AVAILABLE", "true")
+    monkeypatch.setattr(connection, "scan_for_gopros_usb", fake_scan_for_gopros_usb)
+    monkeypatch.setattr(connection, "scan_for_gopros_ble", fake_scan_for_gopros_ble)
+    monkeypatch.setattr(
+        connection, "wait_for_user_interrupt", fake_wait_for_user_interrupt
+    )
+
+    gopros, bles = await connection.scan_for_gopros(
+        waiting_time=0.01, bluetooth=True, usb=False
+    )
+
+    assert gopros == set()
+    assert bles == set()
+    assert not usb_called.is_set()
+    assert ble_called.is_set()
+
+
 # @pytest.mark.asyncio
 # async def test_scan_for_gopros_usb_finds_devices(monkeypatch):
 #     # simulate find_first_ip_addr returning an object with name

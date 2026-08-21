@@ -28,7 +28,7 @@ repos:
       - id: rst-inline-touching-normal
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: "0.37.0"
+    rev: "0.37.4"
     hooks:
       - id: check-dependabot
       - id: check-github-workflows
@@ -39,7 +39,7 @@ repos:
       - id: check-codecov
 
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
-    rev: v9.24.0
+    rev: v9.26.0
     hooks:
       - id: commitlint
         stages: [commit-msg]
@@ -47,7 +47,7 @@ repos:
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.15.5
+    rev: v0.15.20
     hooks:
       # Run the linter.
       - id: ruff-check
@@ -57,7 +57,7 @@ repos:
         args: [--config=pyproject.toml]
 
   - repo: https://github.com/scientific-python/cookie
-    rev: 2026.03.02
+    rev: 2026.06.18
     hooks:
       - id: sp-repo-review
 
@@ -82,7 +82,7 @@ repos:
           - myst-parser
 
   - repo: https://github.com/numpy/numpydoc
-    rev: v1.10.0
+    rev: v1.11.0rc0
     hooks:
       - id: numpydoc-validation
         exclude: demo.py
@@ -95,7 +95,7 @@ repos:
           - black==22.12.0
 
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.11
+    rev: v1.7.12
     hooks:
       - id: actionlint
 
@@ -132,7 +132,7 @@ repos:
           )
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1
+    rev: v2.1.0
     hooks:
       - id: mypy
         args: ["--config-file=pyproject.toml", "src/pytermite"]
