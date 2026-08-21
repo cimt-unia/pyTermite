@@ -660,7 +660,7 @@ def record(
         if action == "stop":
             fetch_process = Process(
                 target=fetch_filenames,
-                args=(CONNECTED_SERIALS, CONNECTED_GOPROS, log),
+                args=(CONNECTED_SERIALS, CONNECTED_GOPROS),
                 daemon=False,
             )
             fetch_process.start()
@@ -678,7 +678,7 @@ def fetchdata(save_path: str | None) -> None:
     try:
         fetch_process = Process(
             target=fetch_recorded,
-            args=(CONNECTED_SERIALS, save_path, log),
+            args=(CONNECTED_SERIALS, save_path),
             daemon=False,
         )
         fetch_process.start()
