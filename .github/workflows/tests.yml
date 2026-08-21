@@ -41,7 +41,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57
 
       - run: uv tool install tox --with tox-uv --with tox-gh-actions
 
@@ -49,6 +49,6 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: ${{ matrix.os == 'ubuntu-latest' &&  matrix.python-version == '3.12'}}
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

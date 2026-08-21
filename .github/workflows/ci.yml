@@ -125,7 +125,7 @@ jobs:
           fetch-depth: 0
 
       - name: Build and inspect the Python package
-        uses: hynek/build-and-inspect-python-package@efb823f52190ad02594531168b7a2d5790e66516
+        uses: hynek/build-and-inspect-python-package@fe0a0fb1925ca263d076ca4f2c13e93a6e92a33e
 
   install:
     name: Check version
@@ -133,7 +133,7 @@ jobs:
     needs: dist
     steps:
       - name: Get artifacts from dist job
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: Packages
           path: ./dist
