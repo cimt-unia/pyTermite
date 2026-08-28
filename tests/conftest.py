@@ -55,6 +55,7 @@ class DummyWiredConnection:
         self.http_command = DummyHTTPCommand(camera_info or {}, camera_state or {})
         self.open_called = False
         self.closed = False
+        self.ip_address = ""
 
     @property
     async def name(self):

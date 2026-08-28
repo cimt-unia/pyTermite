@@ -78,6 +78,15 @@ pytermite disconnect
 
 ## Testing
 
+To use an individual config for testing `.env` files are recommended.
+Create a file `env/.env.test` with the following content and change `YOUR_WORKDIR` to the root path of this repository:
+
+```dotenv
+PYTERMITE_LOG_LEVEL=DEBUG
+```
+
+This should be sufficient since the `tox.ini` is already configured to load the `env/.env.test` file automatically when running tests.
+
 Run the test suite with coverage reporting:
 
 ```bash

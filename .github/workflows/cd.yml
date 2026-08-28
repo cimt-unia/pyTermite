@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.clean_tag.outputs.version }}
+    permissions:
+      contents: read
     steps:
       - name: Strip leading 'v' from tag
         id: clean_tag
@@ -47,7 +49,7 @@ jobs:
       url: https://pypi.org/p/pyTermite
     steps:
       - name: Collect built artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: Packages
           path: ./dist
@@ -70,7 +72,7 @@ jobs:
       contents: write
     steps:
       - name: Collect built artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: Packages
           path: ./dist
@@ -91,12 +93,9 @@ jobs:
           done
 
       - name: Collect changelog for release
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: Changes
 
       - name: Publish Python distribution to GitHub Releases
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
-        with:
-          files: dist/*
-          body_path: CHANGES.md
+        run: gh release create ${GITHUB_REF_NAME} dist/* -F CHANGES.md
