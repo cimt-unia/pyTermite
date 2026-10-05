@@ -1,4 +1,4 @@
-# ruff: noqa: RUF067
+# ruff: file-ignore[non-empty-init-module]
 """
 `pyTermite` is a small package to control multiple GoPro cameras via USB connection.
 

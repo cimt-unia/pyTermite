@@ -196,7 +196,7 @@ async def wait_for_user_interrupt() -> None:
 
         Read and discard the line, set the global interrupt flag and the
         event so the coroutine can continue.
-        """  # noqa: D401
+        """  # ruff: ignore[non-imperative-mood]
         try:
             # consume the input line so the next read is fresh
             # use os.read on the fd to avoid potential blocking text IO

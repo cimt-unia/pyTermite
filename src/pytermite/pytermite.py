@@ -410,7 +410,7 @@ def record(action: str) -> None:  # numpydoc ignore=GL03
 def _exit_handler() -> None:
     """
     Atexit handler to close connections on process exit.
-    """  # noqa: D200
+    """  # ruff: ignore[unnecessary-multiline-docstring]
     log = logger.bind()
     log.debug("Exiting pyTermite CLI")
     log.info("Closing all connections")
