@@ -43,12 +43,12 @@ jobs:
     needs: [run-lints, run-tests]
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Generate a full changelog
-        uses: orhun/git-cliff-action@07dda386992489f0a6151dee53f3a137713644de
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff
         id: git-cliff-full
         with:
           config: cliff.toml
@@ -58,7 +58,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Setup Python 3.12
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: 3.12
 
@@ -83,7 +83,7 @@ jobs:
       - name: Commit full changelog
         id: commit-changelog
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde
+        uses: planetscale/ghcommit-action@a6b150b81dca5dd027baa898604418eec9e11465
         with:
           commit_message: "chore: update changelog"
           repo: ${{ github.repository }}
@@ -92,7 +92,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
       - name: Generate a release changelog
-        uses: orhun/git-cliff-action@07dda386992489f0a6151dee53f3a137713644de
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff
         if: ${{ inputs.version }}
         id: git-cliff-release
         with:
@@ -103,7 +103,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Upload changelog
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: ${{ inputs.version }}
         id: upload-changelog
         with:
@@ -120,12 +120,12 @@ jobs:
     needs: generate-changelog
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Build and inspect the Python package
-        uses: hynek/build-and-inspect-python-package@fe0a0fb1925ca263d076ca4f2c13e93a6e92a33e
+        uses: hynek/build-and-inspect-python-package@2abe76da66d0a6a4a227101f9348ee855797cfa5
 
   install:
     name: Check version
@@ -139,7 +139,7 @@ jobs:
           path: ./dist
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: 3.12
 
