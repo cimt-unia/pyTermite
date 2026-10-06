@@ -68,6 +68,7 @@ class LTCGenerator:
         self.stop_event = stop_event
         self.sample_rate = config["sample_rate"]
         self.fps = config["fps"]
+        self.double_frames = config["fps"] == 50
         self.device = config["device"]
         self.samples_per_frame = self.sample_rate // self.fps
         self.samples_per_bit = int(self.sample_rate / self.fps / 80)
@@ -181,10 +182,12 @@ class LTCGenerator:
         This function continuously generates LTC frames and puts them into a queue
         until stopped.
         """
+        n = 2 if self.double_frames else 1
         while not self.stop_event.is_set():
             word = self.create_next_bitword()
             samples = self.sample_word(word)
-            self.frame_queue.put(np.array(samples, dtype=np.float32))
+            for _ in range(n):
+                self.frame_queue.put(np.array(samples, dtype=np.float32))
 
     # ruff: ignore[ARG002]
     def callback(
