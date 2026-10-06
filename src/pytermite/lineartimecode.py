@@ -67,7 +67,7 @@ class LTCGenerator:
     def __init__(self, config: dict, stop_event: SyncEvent) -> None:
         self.stop_event = stop_event
         self.sample_rate = config["sample_rate"]
-        self.fps = 25
+        self.fps = config["fps"]
         self.double_frames = config["fps"] == 50
         self.device = config["device"]
         self.samples_per_frame = self.sample_rate // self.fps
