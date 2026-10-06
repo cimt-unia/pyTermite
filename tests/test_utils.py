@@ -23,8 +23,8 @@ class Thing:
 
 
 def test_create_base_url_short_serial():
-    url = utils.create_base_url("C123456789")
-    assert url == "http://172.27.189.51:8080/gopro/camera"
+    url = utils.create_ip_address("C123456789")
+    assert url == "172.27.189.51"
 
 
 def test_reverse_and_serialize_dict_dataclass_and_enum():

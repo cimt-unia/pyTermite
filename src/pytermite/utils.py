@@ -39,24 +39,24 @@ def load_serial_numbers_from_json(filepath: pathlib.Path | str) -> dict[str, str
         return json.load(f)
 
 
-def create_base_url(serial_number: str) -> str:
+def create_ip_address(serial_number: str) -> str:
     """
-    Create the camera REST base URL from a serial number.
+    Create the camera IP address from a serial number.
 
     Parameters
     ----------
     serial_number : str
-        The camera serial number used to derive the REST API base URL.
+        The camera serial number used to derive the REST API IP address.
 
     Returns
     -------
     str
-        Fully qualified base URL for the camera's REST API.
+        IP address for the camera's REST API.
     """
     x = serial_number[-3:-2]
     y = serial_number[-2:-1]
     z = serial_number[-1:]
-    return f"http://172.2{x}.1{y}{z}.51:8080/gopro/camera"
+    return f"172.2{x}.1{y}{z}.51"
 
 
 def reverse_dict(d: dict) -> dict:

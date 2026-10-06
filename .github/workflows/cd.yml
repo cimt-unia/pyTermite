@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.clean_tag.outputs.version }}
+    permissions:
+      contents: read
     steps:
       - name: Strip leading 'v' from tag
         id: clean_tag
@@ -96,7 +98,4 @@ jobs:
           name: Changes
 
       - name: Publish Python distribution to GitHub Releases
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
-        with:
-          files: dist/*
-          body_path: CHANGES.md
+        run: gh release create ${GITHUB_REF_NAME} dist/* -F CHANGES.md

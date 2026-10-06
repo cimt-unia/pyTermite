@@ -1,6 +1,13 @@
-open-gopro
+open-gopro==0.22.0
 requests
 aiohttp
+zeroconf
 structlog
 rich
 click
+click-help-colors
+ffmpeg-python
+numpy
+sounddevice
+soundfile
+pylsl
