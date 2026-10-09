@@ -110,7 +110,7 @@ def serializable_connections(connections: set) -> set:
     cleaned_connections = set()
     for con in connections:
         con_copy = copy.copy(con)
-        con.copy._wired_api = None
+        con_copy._wired_api = None
         con_copy.streaming = None
         con_copy._loop = None
         cleaned_connections.add(con_copy)
