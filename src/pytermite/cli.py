@@ -19,8 +19,8 @@ import logging
 import os
 import shlex
 import time
+import multiprocessing
 import sounddevice as sd
-from tabulate import tabulate
 from multiprocessing import Event, Process
 from multiprocessing.synchronize import Event as SyncEvent
 from pathlib import Path
@@ -58,7 +58,8 @@ from pytermite.lineartimecode import (
 from pytermite.utils import (
     load_serial_numbers_from_json,
     parse_setting,
-    parse_status
+    parse_status,
+    serializable_connections
 )
 
 from open_gopro.models.constants import StatusId
@@ -845,16 +846,16 @@ preview_processes = []
 @click.argument("action", type=click.Choice(["start", "stop"]), default=None)
 def preview_stream(action: str) -> None:
     log = logger.bind(command="preview-stream")
-    global CONNECTED_SERIALS
+    global CONNECTED_GOPROS
     global preview_processes
     try:
         #cams_available = CONNECTED_SERIALS is not None and len(CONNECTED_SERIALS) > 0
         cams_available = True
         if action == "start" and cams_available:
-            stop_event = asyncio.Event()
+            stop_event = multiprocessing.Event()
             preview_process = Process(
                 target=_run_preview,
-                 args=(CONNECTED_GOPROS, stop_event, log)
+                 args=(serializable_connections(CONNECTED_GOPROS), stop_event)
             )
             preview_process.start()
             preview_processes.append((preview_process, stop_event))
@@ -874,8 +875,9 @@ def preview_stream(action: str) -> None:
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
-def _run_preview(serials, stop_event, logger):
-    stream = PreviewStream(serials, stop_event, logger)
+def _run_preview(serials, stop_event):
+    log = logger.bind(command="preview-stream")
+    stream = PreviewStream(serials, stop_event, log)
 
 @cli.command()
 @click.option("--settings", is_flag=True, show_default=False)

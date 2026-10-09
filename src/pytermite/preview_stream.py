@@ -80,7 +80,7 @@ class PreviewStream():
                     f"Failed to start stream for {connection.ip_address}: {response}"
                 )
 
-        await self.stop_event.wait()
+        await asyncio.to_thread(self.stop_event.wait)
 
 
 class UDPReceiver():

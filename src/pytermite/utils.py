@@ -18,6 +18,7 @@ import pathlib
 from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any
+import copy
 
 
 def load_serial_numbers_from_json(filepath: pathlib.Path | str) -> dict[str, str]:
@@ -103,6 +104,17 @@ def serialize_dict(d: dict) -> dict:
         else:
             output_dict[str(k)] = v.__dict__ if hasattr(v, "__dict__") else str(v)
     return output_dict
+
+
+def serializable_connections(connections: set) -> set:
+    cleaned_connections = set()
+    for con in connections:
+        con_copy = copy.copy(con)
+        con.copy._wired_api = None
+        con_copy.streaming = None
+        con_copy._loop = None
+        cleaned_connections.add(con_copy)
+    return cleaned_connections
 
 
 def write_json_to_file(data: dict, filepath: pathlib.Path | str) -> None:
