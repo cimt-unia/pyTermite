@@ -31,6 +31,8 @@ class PreviewStream():
         self.canvas.grid(row=self.canvas_size, column=self.canvas_size)
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        self.streams = []
         
         threading.Thread(target=self.preview_start, daemon=True).start()
         
@@ -52,6 +54,8 @@ class PreviewStream():
         self.stop_event.set()
         self.preview_stop()
         self.root.destroy()
+        for stream in self.streams:
+            stream.process.kill()
 
     def preview_stop(self) -> None:
         for ip in self.ips:
@@ -61,15 +65,6 @@ class PreviewStream():
                 self.logger.warning(f"Failed to stop stream for {ip}: {response}")
 
     async def show_streams(self, total_canvas_width):
-        for index, (ip, port) in enumerate(self.ips.items()):
-            row, col = divmod(index, self.canvas_size)
-
-            receiver = UDPReceiver(self.canvas, row, col, ip, port, self.canvas_size, total_canvas_width)
-            threading.Thread(target=receiver.start, daemon=True).start()
-
-
-        await asyncio.sleep(0.5)
-
         for connection in self.connection:
 
             response = make_gopro_request(
@@ -79,6 +74,17 @@ class PreviewStream():
                 self.logger.warning(
                     f"Failed to start stream for {connection.ip_address}: {response}"
                 )
+
+        await asyncio.sleep(0.5)
+                
+        
+        for index, (ip, port) in enumerate(self.ips.items()):
+            row, col = divmod(index, self.canvas_size)
+
+            receiver = UDPReceiver(self.canvas, row, col, ip, port, self.canvas_size, total_canvas_width)
+            stream = threading.Thread(target=receiver.start, daemon=True)
+            stream.start()
+            self.streams.append(receiver)
 
         await asyncio.to_thread(self.stop_event.wait)
 
@@ -94,6 +100,7 @@ class UDPReceiver():
         self.total_canvas_width = total_canvas_width
         self.current_img = None
         self.canvas_image_id = None
+        self.process = None
 
     def start(self):
         width = max(self.total_canvas_width // self.canvas_size, 320)
@@ -110,9 +117,9 @@ class UDPReceiver():
             "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"
         ]
 
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        while raw_bytes := process.stdout.read(frame_size):
+        while raw_bytes := self.process.stdout.read(frame_size):
             if len(raw_bytes) != frame_size:
                 continue
             image = PIL.Image.frombytes("RGB", (width, height), raw_bytes)
