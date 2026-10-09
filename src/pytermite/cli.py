@@ -19,6 +19,7 @@ import logging
 import os
 import shlex
 import time
+import sounddevice as sd
 from tabulate import tabulate
 from multiprocessing import Event, Process
 from multiprocessing.synchronize import Event as SyncEvent
@@ -666,19 +667,9 @@ last_timecode_flag = False
 
 
 @cli.command()
-@click.option(
-    "--no-timecode",
-    "-nt",
-    is_flag=True,
-    show_default=False,
-    help="Deactivate the use of linear timecode",
-)
-@click.option("--device", default=None, type=int)
-@click.option("--fps", default=50, type=int)
-@click.option("--sample_rate", default=48000, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
 def record(
-    action: str, no_timecode: bool, device: int | None, fps: int, sample_rate: int
+    action: str
 ) -> None:  # numpydoc ignore=GL03
     """
     Start or stop recording on all currently connected GoPro cameras.
@@ -691,29 +682,8 @@ def record(
         Whether to start or stop recording.
     """
     log = logger.bind(command="record")
-    global ltc_processes
-    global last_timecode_flag
     global CONNECTED_GOPROS
-    no_timecode = last_timecode_flag if action == "stop" else no_timecode
-    last_timecode_flag = (
-        (no_timecode if device is not None else True)
-        if action == "start"
-        else last_timecode_flag
-    )
     try:
-        if not no_timecode and (device is not None or action == "stop"):
-            if action == "start":
-                ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
-                stop_event = Event()
-                ltc_process = Process(
-                    target=_run_generator, args=(ltc_config, stop_event)
-                )
-                ltc_process.start()
-                ltc_processes.append((ltc_process, stop_event))
-                time.sleep(3)
-            elif action == "stop":
-                for p in ltc_processes:
-                    p[1].set()
         asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
         if action == "stop":
             fetch_process = Process(
@@ -722,6 +692,55 @@ def record(
                 daemon=False,
             )
             fetch_process.start()
+    except RuntimeError as e:
+        log.error(str(e))
+    if KEEP_OPEN:
+        _run_repl(click.get_current_context())
+
+
+@cli.command()
+@click.option("--device", default=None, type=int)
+@click.option("--fps", default=50, type=int)
+@click.option("--sample_rate", default=48000, type=int)
+@click.argument("action", type=click.Choice(["start", "stop"]))
+def gen_timecode(
+    action: str, device: int | None, fps: int, sample_rate: int
+) -> None:
+    """
+        Start or stop timecode generation
+    
+        \f
+    
+        Parameters
+        ----------
+        action : {"start", "stop"}
+            Whether to start or stop generation.
+        device :
+            Defines device to output generated timecode by sounddevice id. Defaults to current system default
+        fps :
+            Sets used timecode standard for available fps settings
+        samplerate:
+            Samplerate for output stream
+        """
+    log = logger.bind(command="gen_timecode")
+    global ltc_processes
+    try:
+        if device is None:
+            device = sd.query_devices(kind="output")["index"]
+        if action == "start" and device is not None:
+            ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
+            stop_event = Event()
+            ltc_process = Process(
+                target=_run_generator, args=(ltc_config, stop_event)
+            )
+            ltc_process.start()
+            ltc_processes.append((ltc_process, stop_event))
+            time.sleep(3)
+        elif action == "stop":
+            for p in ltc_processes:
+                p[1].set()
+        else:
+            log.warning("No valid options for timecode generator provided!")
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
