@@ -124,29 +124,42 @@ def write_json_to_file(data: dict, filepath: pathlib.Path | str) -> None:
     with pathlib.Path(filepath).open("w") as f:
         json.dump(data, f, indent=4)
 
+
 SETTINGS_MAP = {}
 STATUSES_MAP = {}
 
-def parse_setting(setting:str, option:str, mode="id"):
-    if mode not in ["id", "name"]: return
+
+def parse_setting(setting: str, option: str, mode="id"):
+    if mode not in ["id", "name"]:
+        return None
     global SETTINGS_MAP
     if len(SETTINGS_MAP) == 0:
-        with open("OpenGoPro_Settings.json", "r") as f:
+        with pathlib.Path("OpenGoPro_Settings.json").open("r") as f:
             SETTINGS_MAP = json.load(f)
-    
+
     if setting.isdigit() and setting in SETTINGS_MAP:
         setting_id = setting
     else:
-        setting_id = next((sid for sid, item in SETTINGS_MAP.items() if item["name"] == setting), None)
-    if setting_id is None: return None, None
+        setting_id = next(
+            (sid for sid, item in SETTINGS_MAP.items() if item["name"] == setting), None
+        )
+    if setting_id is None:
+        return None, None
     setting_name = SETTINGS_MAP[setting_id]["name"]
-
 
     if option.isdigit() and option in SETTINGS_MAP[setting_id]["options"]:
         option_id = option
     else:
-        option_id = next((oid for oid, item in SETTINGS_MAP[setting_id]["options"].items() if item == option), None)
-    if option_id is None: return None, None
+        option_id = next(
+            (
+                oid
+                for oid, item in SETTINGS_MAP[setting_id]["options"].items()
+                if item == option
+            ),
+            None,
+        )
+    if option_id is None:
+        return None, None
     option_value = SETTINGS_MAP[setting_id]["options"][option_id]
 
     if mode == "id":
@@ -154,9 +167,10 @@ def parse_setting(setting:str, option:str, mode="id"):
     if mode == "name":
         return setting_name, option_value
 
-def parse_status(status:str):
+
+def parse_status(status: str):
     global STATUSES_MAP
     if len(STATUSES_MAP) == 0:
-        with open("OpenGoPro_Statuses.json", "r") as f:
+        with pathlib.Path("OpenGoPro_Statuses.json").open("r") as f:
             STATUSES_MAP = json.load(f)
     return STATUSES_MAP[status] if status in STATUSES_MAP else status

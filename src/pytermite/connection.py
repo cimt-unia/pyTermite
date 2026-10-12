@@ -14,8 +14,8 @@ USB/mdns, and manage open/close life-cycle of WiredConnection objects.
 
 import asyncio
 import contextlib
-from io import StringIO
 import json
+import logging
 import os
 import pathlib
 import re
@@ -23,11 +23,10 @@ import sys
 import tempfile
 import traceback
 from collections.abc import AsyncGenerator
+from io import StringIO
 from typing import Any
-import logging
 
 import click
-from pandas import io
 import requests
 import structlog
 from bleak import BleakScanner
@@ -36,11 +35,8 @@ from bleak.backends.scanner import AdvertisementData
 from open_gopro import WiredGoPro, WirelessGoPro
 from open_gopro.domain.exceptions import GoProError, ResponseTimeout
 from open_gopro.models.proto import EnumCOHNNetworkState, EnumCOHNStatus
-from requests import Response
 from zeroconf import ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
-
-from pathlib import Path
 
 from pytermite.config import resolve_config_path
 from pytermite.utils import (
@@ -139,8 +135,8 @@ class WirelessConnection(WirelessGoPro):
 def make_gopro_request(
     connection: WirelessConnection | WiredConnection | str,
     request_path: str,
-    timeout: int = 10
-    ) -> requests.Response | None:
+    timeout: int = 10,
+) -> requests.Response | None:
     """
     Make GET request to provided GoPro Connection.
 
@@ -174,7 +170,7 @@ def make_gopro_request(
         if isinstance(connection, WirelessConnection):
             if connection.cohn.credentials is None:
                 logger.warning("Connection does not have Cohn credentials.")
-                return
+                return None
             url = f"https://{connection.ip_address}/{request_path}"
             cert_string = connection.cohn.credentials.certificate
 
@@ -588,7 +584,7 @@ async def close_gopros(
             )
         elif isinstance(gopro, WirelessConnection):
             if gopro.is_ble_connected and gopro._ble is not None:
-                print(f"Shouldnt be connected via BLE")
+                print("Shouldnt be connected via BLE")
             await gopro.close()
             logger.debug(
                 f"Disconnected from {gopro.identifier}",

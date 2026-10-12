@@ -1,16 +1,21 @@
-import PIL.Image, PIL.ImageTk
-import threading
-import tkinter as tk
-import subprocess
 import asyncio
 import math
+import subprocess
+import threading
+import tkinter as tk
 
-from pytermite.connection import make_gopro_request, WiredConnection, WirelessConnection
+import PIL.Image
+import PIL.ImageTk
 
-class PreviewStream():
+from pytermite.connection import WiredConnection, WirelessConnection, make_gopro_request
+
+
+class PreviewStream:
     _active_instance = None  # guards against overlapping preview sessions
 
-    def __init__(self, connection: WirelessConnection | WiredConnection, stop_event, logger):
+    def __init__(
+        self, connection: WirelessConnection | WiredConnection, stop_event, logger
+    ):
         if PreviewStream._active_instance is not None:
             logger.warning(
                 "A preview stream is already running — ignoring duplicate start request "
@@ -24,23 +29,23 @@ class PreviewStream():
         self.stop_event = stop_event
         self.connection = connection
         self.ips = {}
-        
+
         self.root = tk.Tk()
         self.canvas_size = math.ceil(math.sqrt(len(connection)))
         self.canvas = tk.Canvas(self.root, width=1000, height=1000, bg="white")
         self.canvas.grid(row=self.canvas_size, column=self.canvas_size)
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-        
+
         threading.Thread(target=self.preview_start, daemon=True).start()
-        
+
         try:
             self.root.mainloop()
         finally:
             PreviewStream._active_instance = None
 
     def preview_start(self) -> None:
-        
+
         total_canvas_width = 1000
 
         for index, connection in enumerate(self.connection):
@@ -56,7 +61,7 @@ class PreviewStream():
     def preview_stop(self) -> None:
         for ip in self.ips:
             response = make_gopro_request(ip, "gopro/camera/stream/stop")
-            
+
             if response is None or not response.ok:
                 self.logger.warning(f"Failed to stop stream for {ip}: {response}")
 
@@ -64,16 +69,17 @@ class PreviewStream():
         for index, (ip, port) in enumerate(self.ips.items()):
             row, col = divmod(index, self.canvas_size)
 
-            receiver = UDPReceiver(self.canvas, row, col, ip, port, self.canvas_size, total_canvas_width)
+            receiver = UDPReceiver(
+                self.canvas, row, col, ip, port, self.canvas_size, total_canvas_width
+            )
             threading.Thread(target=receiver.start, daemon=True).start()
-
 
         await asyncio.sleep(0.5)
 
         for connection in self.connection:
-
             response = make_gopro_request(
-                connection, f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}"
+                connection,
+                f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}",
             )
             if response is None or not response.ok:
                 self.logger.warning(
@@ -83,7 +89,7 @@ class PreviewStream():
         await self.stop_event.wait()
 
 
-class UDPReceiver():
+class UDPReceiver:
     def __init__(self, canvas, row, col, ip, port, canvas_size, total_canvas_width):
         self.canvas = canvas
         self.row = row
@@ -102,12 +108,21 @@ class UDPReceiver():
 
         cmd = [
             "ffmpeg",
-            "-fflags", "nobuffer",
-            "-flags", "low_delay",
-            "-f", "mpegts",
-            "-i", f"udp://0.0.0.0:{self.port}",
-            "-vf", f"scale={width}:{height}",
-            "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"
+            "-fflags",
+            "nobuffer",
+            "-flags",
+            "low_delay",
+            "-f",
+            "mpegts",
+            "-i",
+            f"udp://0.0.0.0:{self.port}",
+            "-vf",
+            f"scale={width}:{height}",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "pipe:1",
         ]
 
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -126,6 +141,8 @@ class UDPReceiver():
         x, y = self.column * width, self.row * height
 
         if self.canvas_image_id is None:
-            self.canvas_image_id = self.canvas.create_image(x, y, image=img_tk, anchor="nw")
+            self.canvas_image_id = self.canvas.create_image(
+                x, y, image=img_tk, anchor="nw"
+            )
         else:
             self.canvas.itemconfig(self.canvas_image_id, image=img_tk)

@@ -19,18 +19,16 @@ import logging
 import os
 import shlex
 import time
-import sounddevice as sd
-from tabulate import tabulate
 from multiprocessing import Event, Process
 from multiprocessing.synchronize import Event as SyncEvent
 from pathlib import Path
-from tabulate import tabulate
-from open_gopro.models.constants import SettingId
-from pytermite.preview_stream import PreviewStream
 
 import click
+import sounddevice as sd
 import structlog
 from click_help_colors import HelpColorsGroup
+from open_gopro.models.constants import StatusId
+from tabulate import tabulate
 
 from pytermite.commands import camera_shutter
 from pytermite.config import PYTERMITE_LOG_LEVEL, resolve_config_path
@@ -48,20 +46,14 @@ from pytermite.connection import (
     load_cohn_identifiers,
     make_gopro_request,
     scan_for_gopros,
-    make_gopro_request
 )
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
 from pytermite.lineartimecode import (
     LTCGenerator,
     decode_timecode_batch,
 )
-from pytermite.utils import (
-    load_serial_numbers_from_json,
-    parse_setting,
-    parse_status
-)
-
-from open_gopro.models.constants import StatusId
+from pytermite.preview_stream import PreviewStream
+from pytermite.utils import load_serial_numbers_from_json, parse_setting, parse_status
 
 os.environ["LANG"] = "en_US"
 
@@ -593,7 +585,7 @@ def list_settings() -> None:
         friendly_name = [camera.identifier for camera in CONNECTED_GOPROS]
         try:
             result = await asyncio.gather(*tasks)
-        except TypeError as e:
+        except TypeError:
             log.warning("No responses received from GoPro cameras.")
             result = []
 
@@ -608,15 +600,13 @@ def list_settings() -> None:
         if resp.data:
             # only settings are shown (otherwise: show all or StatusId.)
             state_data = {
-                k: v for k, v in resp.data.items() 
-                if str(k).startswith("SettingId.")
+                k: v for k, v in resp.data.items() if str(k).startswith("SettingId.")
             }
         else:
             state_data = {}
 
         table_data = [
-            [str(key).split(".")[-1], str(val)] 
-            for key, val in state_data.items()
+            [str(key).split(".")[-1], str(val)] for key, val in state_data.items()
         ]
 
         # Formats cleanly in terminal grid layout
@@ -630,7 +620,6 @@ def list_connected() -> None:
     log.debug("Listing connected GoPro cameras")
     global CONNECTED_GOPROS
     for gopro in CONNECTED_GOPROS:
-
         # check connection and retrieve information
         try:
             state = asyncio.run(gopro.http_command.get_camera_state())
@@ -638,9 +627,8 @@ def list_connected() -> None:
 
             print("GoPro: ", gopro.identifier, "\tBattery: ", battery)
 
-        except Exception as e:
+        except Exception:
             continue
-
 
         # print("GoPro: ", gopro.identifier)
 
@@ -668,9 +656,7 @@ last_timecode_flag = False
 
 @cli.command()
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def record(
-    action: str
-) -> None:  # numpydoc ignore=GL03
+def record(action: str) -> None:  # numpydoc ignore=GL03
     """
     Start or stop recording on all currently connected GoPro cameras.
 
@@ -703,25 +689,23 @@ def record(
 @click.option("--fps", default=50, type=int)
 @click.option("--sample_rate", default=48000, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def gen_timecode(
-    action: str, device: int | None, fps: int, sample_rate: int
-) -> None:
+def gen_timecode(action: str, device: int | None, fps: int, sample_rate: int) -> None:
     """
-        Start or stop timecode generation
-    
-        \f
-    
-        Parameters
-        ----------
-        action : {"start", "stop"}
-            Whether to start or stop generation.
-        device :
-            Defines device to output generated timecode by sounddevice id. Defaults to current system default
-        fps :
-            Sets used timecode standard for available fps settings
-        samplerate:
-            Samplerate for output stream
-        """
+    Start or stop timecode generation
+
+    \f
+
+    Parameters
+    ----------
+    action : {"start", "stop"}
+        Whether to start or stop generation.
+    device :
+        Defines device to output generated timecode by sounddevice id. Defaults to current system default
+    fps :
+        Sets used timecode standard for available fps settings
+    samplerate:
+        Samplerate for output stream
+    """
     log = logger.bind(command="gen_timecode")
     global ltc_processes
     try:
@@ -730,9 +714,7 @@ def gen_timecode(
         if action == "start" and device is not None:
             ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
             stop_event = Event()
-            ltc_process = Process(
-                target=_run_generator, args=(ltc_config, stop_event)
-            )
+            ltc_process = Process(target=_run_generator, args=(ltc_config, stop_event))
             ltc_process.start()
             ltc_processes.append((ltc_process, stop_event))
             time.sleep(3)
@@ -815,16 +797,24 @@ def decode_path(action: str, input_path: str | None, fps: int) -> None:
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+
 @cli.command()
 @click.argument("identifier", type=str)
 @click.argument("setting", type=str)
 @click.argument("option", type=str)
-def change_setting(identifier:str, setting:str, option:str):
+def change_setting(identifier: str, setting: str, option: str):
     return
     global CONNECTED_GOPROS
     log = logger.bind(command="change_setting")
     try:
-        connection = next((con for con in CONNECTED_GOPROS if con._identifier == identifier or con._name == identifier), None)
+        connection = next(
+            (
+                con
+                for con in CONNECTED_GOPROS
+                if con._identifier == identifier or con._name == identifier
+            ),
+            None,
+        )
         if connection is None:
             log.warning(f"{identifier} is not connected")
         else:
@@ -840,7 +830,10 @@ def change_setting(identifier:str, setting:str, option:str):
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+
 preview_processes = []
+
+
 @cli.command()
 @click.argument("action", type=click.Choice(["start", "stop"]), default=None)
 def preview_stream(action: str) -> None:
@@ -848,13 +841,12 @@ def preview_stream(action: str) -> None:
     global CONNECTED_SERIALS
     global preview_processes
     try:
-        #cams_available = CONNECTED_SERIALS is not None and len(CONNECTED_SERIALS) > 0
+        # cams_available = CONNECTED_SERIALS is not None and len(CONNECTED_SERIALS) > 0
         cams_available = True
         if action == "start" and cams_available:
             stop_event = asyncio.Event()
             preview_process = Process(
-                target=_run_preview,
-                 args=(CONNECTED_GOPROS, stop_event, log)
+                target=_run_preview, args=(CONNECTED_GOPROS, stop_event, log)
             )
             preview_process.start()
             preview_processes.append((preview_process, stop_event))
@@ -868,20 +860,24 @@ def preview_stream(action: str) -> None:
                 del preview_processes[i]
                 log.info(f"Stopped preview process {i}")
         else:
-            log.warning("Preview could not be started: Invalid parameters/No GoPros available")
+            log.warning(
+                "Preview could not be started: Invalid parameters/No GoPros available"
+            )
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+
 def _run_preview(serials, stop_event, logger):
     stream = PreviewStream(serials, stop_event, logger)
+
 
 @cli.command()
 @click.option("--settings", is_flag=True, show_default=False)
 @click.option("--status", is_flag=True, show_default=False)
-@click.argument("identifiers", default = None, type=str)
-def get_camera_state(identifiers:str, settings:bool, status:bool):
+@click.argument("identifiers", default=None, type=str)
+def get_camera_state(identifiers: str, settings: bool, status: bool):
     global CONNECTED_GOPROS
     log = logger.bind(command="get_camera_state")
     if identifiers is None:
@@ -893,19 +889,33 @@ def get_camera_state(identifiers:str, settings:bool, status:bool):
     identifiers_type = []
     try:
         for identifier in identifiers:
-            connection = next((con for con in CONNECTED_GOPROS if con._identifier == identifier or con._name == identifier), None)
+            connection = next(
+                (
+                    con
+                    for con in CONNECTED_GOPROS
+                    if con._identifier == identifier or con._name == identifier
+                ),
+                None,
+            )
             if connection is None:
                 log.warning(f"{identifier} is not connected")
             else:
-                con_type = "Wireless" if isinstance(connection, WirelessConnection) else "USB" if isinstance(connection, WiredConnection) else "Undefined"
+                con_type = (
+                    "Wireless"
+                    if isinstance(connection, WirelessConnection)
+                    else "USB"
+                    if isinstance(connection, WiredConnection)
+                    else "Undefined"
+                )
                 identifiers_type.append(f"{identifier} ({con_type})")
-                request_path = f"gopro/camera/state"
+                request_path = "gopro/camera/state"
                 response = make_gopro_request(connection, request_path)
                 if response is not None and response.status_code == 200:
                     response_data = response.json()
                     for key, value in response_data["settings"].items():
                         name, option = parse_setting(key, str(value), mode="name")
-                        if name is None: continue
+                        if name is None:
+                            continue
                         if name in table_settings:
                             table_settings[name].append(option)
                         else:
@@ -918,15 +928,15 @@ def get_camera_state(identifiers:str, settings:bool, status:bool):
                             table_statuses[name] = [name, value]
                 else:
                     log.warning(f"State request for {identifier} failed")
-        
-        if not(status and not settings):
-            log.info(f"\n####\nCamera settings:\n####")
+
+        if not (status and not settings):
+            log.info("\n####\nCamera settings:\n####")
             headers = ["Settings"]
             headers.extend(identifiers_type)
             table_data = [table_settings[key] for key in table_settings]
             print(tabulate(table_data, headers=headers, tablefmt="fancy_grid"))
-        if not(settings and not status):
-            log.info(f"\n####\nCamera statuses:\n####")
+        if not (settings and not status):
+            log.info("\n####\nCamera statuses:\n####")
             headers = ["Status"]
             headers.extend(identifiers_type)
             table_data = [table_statuses[key] for key in table_statuses]
