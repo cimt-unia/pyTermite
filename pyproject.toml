@@ -86,6 +86,7 @@ lint = [
 build =  [
     "build",
     "setuptools",
+    "setuptools-scm",
 ]
 release = [
     {include-group = "build"},
