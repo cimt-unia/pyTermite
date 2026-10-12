@@ -11,3 +11,6 @@ numpy
 sounddevice
 soundfile
 pylsl
+tabulate
+pandas
+pillow
