@@ -64,6 +64,7 @@ BLES: dict[str, WirelessConnection] = {}
 COHN: dict[str, WirelessConnection] = {}
 CONNECTED_GOPROS: set[WiredConnection | WirelessConnection] = set()
 KEEP_OPEN = False
+PREVIEW_PROCESSES: list[tuple[Process, SyncEvent]] = []
 
 
 class _LineContinue(enum.StrEnum):
@@ -630,8 +631,6 @@ def list_connected() -> None:
         except Exception:
             continue
 
-        # print("GoPro: ", gopro.identifier)
-
 
 @cli.command()
 def disconnect() -> None:
@@ -689,9 +688,11 @@ def record(action: str) -> None:  # numpydoc ignore=GL03
 @click.option("--fps", default=50, type=int)
 @click.option("--sample_rate", default=48000, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def gen_timecode(action: str, device: int | None, fps: int, sample_rate: int) -> None:
+def generate_timecode(
+    action: str, device: int | None, fps: int, sample_rate: int
+) -> None:
     """
-    Start or stop timecode generation
+    Start or stop timecode generation.
 
     \f
 
@@ -700,10 +701,11 @@ def gen_timecode(action: str, device: int | None, fps: int, sample_rate: int) ->
     action : {"start", "stop"}
         Whether to start or stop generation.
     device :
-        Defines device to output generated timecode by sounddevice id. Defaults to current system default
+        Defines device to output generated timecode by sounddevice id.
+        Defaults to current system default
     fps :
         Sets used timecode standard for available fps settings
-    samplerate:
+    sample_rate:
         Samplerate for output stream
     """
     log = logger.bind(command="gen_timecode")
@@ -803,7 +805,6 @@ def decode_path(action: str, input_path: str | None, fps: int) -> None:
 @click.argument("setting", type=str)
 @click.argument("option", type=str)
 def change_setting(identifier: str, setting: str, option: str):
-    return
     global CONNECTED_GOPROS
     log = logger.bind(command="change_setting")
     try:
@@ -831,15 +832,12 @@ def change_setting(identifier: str, setting: str, option: str):
         _run_repl(click.get_current_context())
 
 
-preview_processes = []
-
-
 @cli.command()
 @click.argument("action", type=click.Choice(["start", "stop"]), default=None)
 def preview_stream(action: str) -> None:
     log = logger.bind(command="preview-stream")
     global CONNECTED_SERIALS
-    global preview_processes
+    global PREVIEW_PROCESSES
     try:
         # cams_available = CONNECTED_SERIALS is not None and len(CONNECTED_SERIALS) > 0
         cams_available = True
@@ -849,15 +847,15 @@ def preview_stream(action: str) -> None:
                 target=_run_preview, args=(CONNECTED_GOPROS, stop_event, log)
             )
             preview_process.start()
-            preview_processes.append((preview_process, stop_event))
+            PREVIEW_PROCESSES.append((preview_process, stop_event))
         elif action == "stop":
             delete_list = []
-            for idx, p in enumerate(preview_processes):
+            for idx, p in enumerate(PREVIEW_PROCESSES):
                 p[1].set()
                 if not p[0].is_alive():
                     delete_list.append(idx)
             for i in sorted(delete_list, reverse=True):
-                del preview_processes[i]
+                del PREVIEW_PROCESSES[i]
                 log.info(f"Stopped preview process {i}")
         else:
             log.warning(
@@ -869,7 +867,7 @@ def preview_stream(action: str) -> None:
         _run_repl(click.get_current_context())
 
 
-def _run_preview(serials, stop_event, logger):
+def _run_preview(serials, stop_event, logger) -> None:
     stream = PreviewStream(serials, stop_event, logger)
 
 

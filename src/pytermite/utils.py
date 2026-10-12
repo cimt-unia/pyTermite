@@ -19,6 +19,9 @@ from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any
 
+SETTINGS_MAP = {}
+STATUSES_MAP = {}
+
 
 def load_serial_numbers_from_json(filepath: pathlib.Path | str) -> dict[str, str]:
     """
@@ -125,13 +128,11 @@ def write_json_to_file(data: dict, filepath: pathlib.Path | str) -> None:
         json.dump(data, f, indent=4)
 
 
-SETTINGS_MAP = {}
-STATUSES_MAP = {}
-
-
-def parse_setting(setting: str, option: str, mode="id"):
+def parse_setting(
+    setting: str, option: str, mode: str = "id"
+) -> tuple[str | None, str | None]:
     if mode not in ["id", "name"]:
-        return None
+        return None, None
     global SETTINGS_MAP
     if len(SETTINGS_MAP) == 0:
         with pathlib.Path("OpenGoPro_Settings.json").open("r") as f:
@@ -167,8 +168,10 @@ def parse_setting(setting: str, option: str, mode="id"):
     if mode == "name":
         return setting_name, option_value
 
+    return None, None
 
-def parse_status(status: str):
+
+def parse_status(status: str) -> str:
     global STATUSES_MAP
     if len(STATUSES_MAP) == 0:
         with pathlib.Path("OpenGoPro_Statuses.json").open("r") as f:
