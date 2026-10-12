@@ -16,6 +16,7 @@ import asyncio
 import atexit
 import enum
 import logging
+import multiprocessing
 import os
 import shlex
 import time
@@ -53,7 +54,12 @@ from pytermite.lineartimecode import (
     decode_timecode_batch,
 )
 from pytermite.preview_stream import PreviewStream
-from pytermite.utils import load_serial_numbers_from_json, parse_setting, parse_status
+from pytermite.utils import (
+    load_serial_numbers_from_json,
+    parse_setting,
+    parse_status,
+    serializable_connections,
+)
 
 os.environ["LANG"] = "en_US"
 
@@ -836,15 +842,16 @@ def change_setting(identifier: str, setting: str, option: str):
 @click.argument("action", type=click.Choice(["start", "stop"]), default=None)
 def preview_stream(action: str) -> None:
     log = logger.bind(command="preview-stream")
-    global CONNECTED_SERIALS
+    global CONNECTED_GOPROS
     global PREVIEW_PROCESSES
     try:
         # cams_available = CONNECTED_SERIALS is not None and len(CONNECTED_SERIALS) > 0
         cams_available = True
         if action == "start" and cams_available:
-            stop_event = asyncio.Event()
+            stop_event = multiprocessing.Event()
             preview_process = Process(
-                target=_run_preview, args=(CONNECTED_GOPROS, stop_event, log)
+                target=_run_preview,
+                args=(serializable_connections(CONNECTED_GOPROS), stop_event),
             )
             preview_process.start()
             PREVIEW_PROCESSES.append((preview_process, stop_event))
@@ -867,8 +874,9 @@ def preview_stream(action: str) -> None:
         _run_repl(click.get_current_context())
 
 
-def _run_preview(serials, stop_event, logger) -> None:
-    stream = PreviewStream(serials, stop_event, logger)
+def _run_preview(serials, stop_event) -> None:
+    log = logger.bind(command="preview-stream")
+    stream = PreviewStream(serials, stop_event, log)
 
 
 @cli.command()
