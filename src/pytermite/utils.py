@@ -135,7 +135,7 @@ def parse_setting(
         return None, None
     global SETTINGS_MAP
     if len(SETTINGS_MAP) == 0:
-        with pathlib.Path("OpenGoPro_Settings.json").open("r") as f:
+        with pathlib.Path("config/OpenGoPro_Settings.json").open("r") as f:
             SETTINGS_MAP = json.load(f)
 
     if setting.isdigit() and setting in SETTINGS_MAP:
@@ -174,6 +174,6 @@ def parse_setting(
 def parse_status(status: str) -> str:
     global STATUSES_MAP
     if len(STATUSES_MAP) == 0:
-        with pathlib.Path("OpenGoPro_Statuses.json").open("r") as f:
+        with pathlib.Path("config/OpenGoPro_Statuses.json").open("r") as f:
             STATUSES_MAP = json.load(f)
     return STATUSES_MAP[status] if status in STATUSES_MAP else status
