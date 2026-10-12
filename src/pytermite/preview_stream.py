@@ -1,16 +1,21 @@
-import PIL.Image, PIL.ImageTk
-import threading
-import tkinter as tk
-import subprocess
 import asyncio
 import math
+import subprocess
+import threading
+import tkinter as tk
 
-from pytermite.connection import make_gopro_request, WiredConnection, WirelessConnection
+import PIL.Image
+import PIL.ImageTk
 
-class PreviewStream():
+from pytermite.connection import WiredConnection, WirelessConnection, make_gopro_request
+
+
+class PreviewStream:
     _active_instance = None  # guards against overlapping preview sessions
 
-    def __init__(self, connection: WirelessConnection | WiredConnection, stop_event, logger):
+    def __init__(
+        self, connection: WirelessConnection | WiredConnection, stop_event, logger
+    ):
         if PreviewStream._active_instance is not None:
             logger.warning(
                 "A preview stream is already running — ignoring duplicate start request "
@@ -33,9 +38,9 @@ class PreviewStream():
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.streams = []
-        
+
         threading.Thread(target=self.preview_start, daemon=True).start()
-        
+
         try:
             self.root.mainloop()
         finally:
@@ -66,9 +71,9 @@ class PreviewStream():
 
     async def show_streams(self, total_canvas_width):
         for connection in self.connection:
-
             response = make_gopro_request(
-                connection, f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}"
+                connection,
+                f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}",
             )
             if response is None or not response.ok:
                 self.logger.warning(
@@ -76,12 +81,13 @@ class PreviewStream():
                 )
 
         await asyncio.sleep(0.5)
-                
-        
+
         for index, (ip, port) in enumerate(self.ips.items()):
             row, col = divmod(index, self.canvas_size)
 
-            receiver = UDPReceiver(self.canvas, row, col, ip, port, self.canvas_size, total_canvas_width)
+            receiver = UDPReceiver(
+                self.canvas, row, col, ip, port, self.canvas_size, total_canvas_width
+            )
             stream = threading.Thread(target=receiver.start, daemon=True)
             stream.start()
             self.streams.append(receiver)
@@ -89,7 +95,7 @@ class PreviewStream():
         await asyncio.to_thread(self.stop_event.wait)
 
 
-class UDPReceiver():
+class UDPReceiver:
     def __init__(self, canvas, row, col, ip, port, canvas_size, total_canvas_width):
         self.canvas = canvas
         self.row = row
@@ -109,15 +115,26 @@ class UDPReceiver():
 
         cmd = [
             "ffmpeg",
-            "-fflags", "nobuffer",
-            "-flags", "low_delay",
-            "-f", "mpegts",
-            "-i", f"udp://0.0.0.0:{self.port}",
-            "-vf", f"scale={width}:{height}",
-            "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"
+            "-fflags",
+            "nobuffer",
+            "-flags",
+            "low_delay",
+            "-f",
+            "mpegts",
+            "-i",
+            f"udp://0.0.0.0:{self.port}",
+            "-vf",
+            f"scale={width}:{height}",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "pipe:1",
         ]
 
-        self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
 
         while raw_bytes := self.process.stdout.read(frame_size):
             if len(raw_bytes) != frame_size:

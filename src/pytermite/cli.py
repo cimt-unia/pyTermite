@@ -16,22 +16,20 @@ import asyncio
 import atexit
 import enum
 import logging
+import multiprocessing
 import os
 import shlex
 import time
-import multiprocessing
-import sounddevice as sd
 from multiprocessing import Event, Process
 from multiprocessing.synchronize import Event as SyncEvent
 from pathlib import Path
-from tabulate import tabulate
-from open_gopro.models.constants import SettingId
-from open_gopro.models.constants import StatusId
-from pytermite.preview_stream import PreviewStream
 
 import click
+import sounddevice as sd
 import structlog
 from click_help_colors import HelpColorsGroup
+from open_gopro.models.constants import StatusId
+from tabulate import tabulate
 
 from pytermite.commands import camera_shutter
 from pytermite.config import PYTERMITE_LOG_LEVEL, resolve_config_path
@@ -49,21 +47,19 @@ from pytermite.connection import (
     load_cohn_identifiers,
     make_gopro_request,
     scan_for_gopros,
-    make_gopro_request
 )
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
 from pytermite.lineartimecode import (
     LTCGenerator,
     decode_timecode_batch,
 )
+from pytermite.preview_stream import PreviewStream
 from pytermite.utils import (
     load_serial_numbers_from_json,
     parse_setting,
     parse_status,
-    serializable_connections
+    serializable_connections,
 )
-
-from open_gopro.models.constants import StatusId
 
 os.environ["LANG"] = "en_US"
 
@@ -596,7 +592,7 @@ def list_settings() -> None:
         friendly_name = [camera.identifier for camera in CONNECTED_GOPROS]
         try:
             result = await asyncio.gather(*tasks)
-        except TypeError as e:
+        except TypeError:
             log.warning("No responses received from GoPro cameras.")
             result = []
 
@@ -638,7 +634,7 @@ def list_connected() -> None:
 
             print("GoPro: ", gopro.identifier, "\tBattery: ", battery)
 
-        except Exception as e:
+        except Exception:
             continue
 
 
@@ -849,13 +845,13 @@ def preview_stream(action: str) -> None:
     global CONNECTED_GOPROS
     global PREVIEW_PROCESSES
     try:
-        #cams_available = CONNECTED_SERIALS is not None and len(CONNECTED_SERIALS) > 0
+        # cams_available = CONNECTED_SERIALS is not None and len(CONNECTED_SERIALS) > 0
         cams_available = True
         if action == "start" and cams_available:
             stop_event = multiprocessing.Event()
             preview_process = Process(
                 target=_run_preview,
-                 args=(serializable_connections(CONNECTED_GOPROS), stop_event)
+                args=(serializable_connections(CONNECTED_GOPROS), stop_event),
             )
             preview_process.start()
             PREVIEW_PROCESSES.append((preview_process, stop_event))
@@ -877,9 +873,11 @@ def preview_stream(action: str) -> None:
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+
 def _run_preview(serials, stop_event) -> None:
     log = logger.bind(command="preview-stream")
     stream = PreviewStream(serials, stop_event, log)
+
 
 @cli.command()
 @click.option("--settings", is_flag=True, show_default=False)

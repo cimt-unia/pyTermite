@@ -13,12 +13,12 @@ Python data types suitable for JSON output.
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
+import copy
 import json
 import pathlib
 from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any
-import copy
 
 SETTINGS_MAP = {}
 STATUSES_MAP = {}

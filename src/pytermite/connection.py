@@ -14,8 +14,8 @@ USB/mdns, and manage open/close life-cycle of WiredConnection objects.
 
 import asyncio
 import contextlib
-from io import StringIO
 import json
+import logging
 import os
 import pathlib
 import re
@@ -25,10 +25,8 @@ import traceback
 from collections.abc import AsyncGenerator
 from io import StringIO
 from typing import Any
-import logging
 
 import click
-from pandas import io
 import requests
 import structlog
 from bleak import BleakScanner
@@ -37,11 +35,8 @@ from bleak.backends.scanner import AdvertisementData
 from open_gopro import WiredGoPro, WirelessGoPro
 from open_gopro.domain.exceptions import GoProError, ResponseTimeout
 from open_gopro.models.proto import EnumCOHNNetworkState, EnumCOHNStatus
-from requests import Response
 from zeroconf import ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
-
-from pathlib import Path
 
 from pytermite.config import resolve_config_path
 from pytermite.utils import (
