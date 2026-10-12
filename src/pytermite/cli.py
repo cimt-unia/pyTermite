@@ -857,7 +857,7 @@ def preview_stream(action: str) -> None:
             PREVIEW_PROCESSES.append((preview_process, stop_event))
         elif action == "stop":
             delete_list = []
-            for idx, p in enumerate(preview_processes):
+            for idx, p in enumerate(PREVIEW_PROCESSES):
                 p[1].set()
                 if not p[0].is_alive():
                     delete_list.append(idx)
