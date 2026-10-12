@@ -252,5 +252,6 @@ cython_debug/
 
 # Custom
 config/
+!/src/pytermite/config
 output/
 cohn_db.json

@@ -13,7 +13,9 @@ USB/mdns, and manage open/close life-cycle of WiredConnection objects.
 #  SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import contextlib
 import json
+import logging
 import os
 import pathlib
 import re
@@ -21,6 +23,7 @@ import sys
 import tempfile
 import traceback
 from collections.abc import AsyncGenerator
+from io import StringIO
 from typing import Any
 
 import click
@@ -30,9 +33,8 @@ from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from open_gopro import WiredGoPro, WirelessGoPro
-from open_gopro.domain.exceptions import ResponseTimeout
+from open_gopro.domain.exceptions import GoProError, ResponseTimeout
 from open_gopro.models.proto import EnumCOHNNetworkState, EnumCOHNStatus
-from requests import Response
 from zeroconf import ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 
@@ -42,6 +44,11 @@ from pytermite.utils import (
     reverse_dict,
     serialize_dict,
 )
+
+# suppress bluetooth connection errors
+logging.getLogger("open_gopro").setLevel(logging.ERROR)
+logging.getLogger("open_gopro.ble.adapters").setLevel(logging.ERROR)
+logging.getLogger("open_gopro.ble.adapters.bleak_wrapper").setLevel(logging.ERROR)
 
 logger = structlog.get_logger()
 
@@ -126,10 +133,10 @@ class WirelessConnection(WirelessGoPro):
 
 
 def make_gopro_request(
-    connection: WirelessConnection | WiredConnection,
+    connection: WirelessConnection | WiredConnection | str,
     request_path: str,
     timeout: int = 10,
-) -> Response | None:
+) -> requests.Response | None:
     """
     Make GET request to provided GoPro Connection.
 
@@ -164,9 +171,10 @@ def make_gopro_request(
             connection.cohn.credentials.username,
             connection.cohn.credentials.password,
         )
+
         try:
             response = requests.request(
-                "GET", url, verify=cert_path, auth=auth, timeout=timeout
+                "GET", url, auth=auth, verify=cert_path, timeout=timeout
             )
         except requests.exceptions.RequestException as e:
             logger.error(
@@ -179,10 +187,10 @@ def make_gopro_request(
         finally:
             pathlib.Path(cert_path).unlink()
 
-    elif isinstance(connection, WiredConnection):
+    if isinstance(connection, WiredConnection):
+        url = f"http://{connection.ip_address}:8080/{request_path}"
         try:
-            url = f"http://{connection.ip_address}/{request_path}"
-            response = requests.request("GET", url, timeout=timeout)
+            response = requests.get(url, timeout=timeout)
         except requests.exceptions.RequestException as e:
             logger.error(
                 f"Request failed for GoPro {connection.identifier} at {url}",
@@ -191,6 +199,19 @@ def make_gopro_request(
                 error=str(e),
             )
             pass
+
+    if isinstance(connection, str):
+        url = f"http://{connection}/{request_path}"
+        try:
+            response = requests.get(url, timeout=timeout)
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                f"Request failed for GoPro at {url}",
+                url=url,
+                error=str(e),
+            )
+            pass
+
     return response
 
 
@@ -398,7 +419,8 @@ async def connect_gopros_wireless(
     """
     for cam_name, gopro in list(gopros.items()):
         try:
-            await gopro.open(retries=5, timeout=10)
+            with contextlib.redirect_stderr(StringIO()):
+                await gopro.open(retries=5, timeout=10)
             await logger.ainfo(f"Connected to {gopro.identifier}", cam_name=cam_name)
 
             status = (await gopro.ble_command.cohn_get_status(register=True)).data
@@ -434,6 +456,8 @@ async def connect_gopros_wireless(
                 )
                 await logger.adebug(result, cam_name=cam_name)
 
+            # close BLE connection to avoid conflicts with COHN
+            await gopro._close_ble()
             yield gopro
 
         except ResponseTimeout as e:
@@ -444,6 +468,12 @@ async def connect_gopros_wireless(
         except Exception as e:
             await logger.aerror(
                 f"Failed to connect to GoPro {cam_name}",
+                error=str(e),
+            )
+
+        except GoProError as e:
+            await logger.aerror(
+                f"Failed to find GoPro {cam_name}",
                 error=str(e),
             )
 
@@ -540,6 +570,8 @@ async def close_gopros(
                 cam_serial=gopro.identifier,
             )
         elif isinstance(gopro, WirelessConnection):
+            if gopro.is_ble_connected and gopro._ble is not None:
+                logger.warning("Closing BLE connection to avoid conflicts with COHN")
             await gopro.close()
             logger.debug(
                 f"Disconnected from {gopro.identifier}",
