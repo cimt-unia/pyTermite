@@ -23,6 +23,7 @@ import sys
 import tempfile
 import traceback
 from collections.abc import AsyncGenerator
+from io import StringIO
 from typing import Any
 import logging
 
@@ -139,8 +140,8 @@ class WirelessConnection(WirelessGoPro):
 def make_gopro_request(
     connection: WirelessConnection | WiredConnection | str,
     request_path: str,
-    timeout: int = 10
-    ) -> requests.Response | None:
+    timeout: int = 10,
+) -> requests.Response | None:
     """
     Make GET request to provided GoPro Connection.
 
@@ -171,23 +172,10 @@ def make_gopro_request(
             f.write(cert_string)
             cert_path = f.name
 
-        if isinstance(connection, WirelessConnection):
-            if connection.cohn.credentials is None:
-                logger.warning("Connection does not have Cohn credentials.")
-                return
-            url = f"https://{connection.ip_address}/{request_path}"
-            cert_string = connection.cohn.credentials.certificate
-
-            with tempfile.NamedTemporaryFile(
-                mode="w", delete=False, suffix=".pem"
-            ) as f:
-                f.write(cert_string)
-                cert_path = f.name
-
-            auth = (
-                connection.cohn.credentials.username,
-                connection.cohn.credentials.password,
-            )
+        auth = (
+            connection.cohn.credentials.username,
+            connection.cohn.credentials.password,
+        )
 
         try:
             response = requests.request(
@@ -588,7 +576,7 @@ async def close_gopros(
             )
         elif isinstance(gopro, WirelessConnection):
             if gopro.is_ble_connected and gopro._ble is not None:
-                print(f"Shouldnt be connected via BLE")
+                logger.warning("Closing BLE connection to avoid conflicts with COHN")
             await gopro.close()
             logger.debug(
                 f"Disconnected from {gopro.identifier}",

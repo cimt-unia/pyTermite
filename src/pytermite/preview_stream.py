@@ -24,7 +24,7 @@ class PreviewStream():
         self.stop_event = stop_event
         self.connection = connection
         self.ips = {}
-        
+
         self.root = tk.Tk()
         self.canvas_size = math.ceil(math.sqrt(len(connection)))
         self.canvas = tk.Canvas(self.root, width=1000, height=1000, bg="white")
@@ -42,7 +42,7 @@ class PreviewStream():
             PreviewStream._active_instance = None
 
     def preview_start(self) -> None:
-        
+
         total_canvas_width = 1000
 
         for index, connection in enumerate(self.connection):
@@ -60,7 +60,7 @@ class PreviewStream():
     def preview_stop(self) -> None:
         for ip in self.ips:
             response = make_gopro_request(ip, "gopro/camera/stream/stop")
-            
+
             if response is None or not response.ok:
                 self.logger.warning(f"Failed to stop stream for {ip}: {response}")
 
@@ -133,6 +133,8 @@ class UDPReceiver():
         x, y = self.column * width, self.row * height
 
         if self.canvas_image_id is None:
-            self.canvas_image_id = self.canvas.create_image(x, y, image=img_tk, anchor="nw")
+            self.canvas_image_id = self.canvas.create_image(
+                x, y, image=img_tk, anchor="nw"
+            )
         else:
             self.canvas.itemconfig(self.canvas_image_id, image=img_tk)

@@ -14,4 +14,3 @@ pylsl
 tabulate
 pandas
 pillow
-tk
