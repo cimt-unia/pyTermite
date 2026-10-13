@@ -117,7 +117,15 @@ class WiredConnection(WiredGoPro):
 
 
 class WirelessConnection(WirelessGoPro):
-    """Subclass of ``WirelessGoPro`` providing a cached human-readable name."""
+    """
+    Subclass of ``WirelessGoPro`` providing a cached human-readable name.
+
+    Parameters
+    ----------
+    **kwargs : Any
+        Keyword arguments passed to ``WirelessGoPro``. The ``target`` keyword is
+        additionally stored on the connection.
+    """
 
     def __init__(self, **kwargs: Any) -> None:
         target = kwargs.pop("target", None)
@@ -142,18 +150,17 @@ def make_gopro_request(
 
     Parameters
     ----------
-    connection : WirelessConnection | WiredConnection
-        Connection Object to be used for request
+    connection : WirelessConnection | WiredConnection | str
+        Connection object to be used for the request.
     request_path : str
-        GoPro internal http request path
-    timeout: int = 10
-        Timeout used for request
+        GoPro internal HTTP request path.
+    timeout : int, default: 10
+        Timeout used for the request, in seconds.
 
     Returns
     -------
     Response | None
-        Response created by made request,
-        None if no valid connection is provided
+        Response created by the request, or None if no valid connection is provided.
     """
     response = None
     if isinstance(connection, WirelessConnection):
@@ -859,6 +866,16 @@ async def scan_for_gopros_ble() -> None:
     def detection_callback(
         device: BLEDevice, advertisment_data: AdvertisementData
     ) -> None:
+        """
+        Add the identifier of each discovered GoPro BLE device to ``BLES``.
+
+        Parameters
+        ----------
+        device : BLEDevice
+            The discovered BLE device.
+        advertisment_data : AdvertisementData
+            Advertisement data of the discovered device.
+        """
         name = device.name or advertisment_data.local_name
         if name and token.match(name):
             cam_id = name.split()[-1]

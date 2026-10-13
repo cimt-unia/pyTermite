@@ -594,12 +594,20 @@ async def _connect_to_gopros() -> None:
 
 
 @cli.command()
-def list_settings() -> None:
+def list_settings() -> None:  # numpydoc ignore=RT01
     """List current settings and environment variables."""
     log = logger.bind(command="list_settings")
     log.debug("Listing current settings and environment variables")
 
     async def fetch_all_settings() -> tuple[list[GoProResp], list[str]]:
+        """
+        Fetch the camera state of all connected GoPros.
+
+        Returns
+        -------
+        tuple[list[GoProResp], list[str]]
+            Camera state responses and the friendly names of the cameras.
+        """
         tasks = [gp.http_command.get_camera_state() for gp in CONNECTED_GOPROS]
         friendly_name = [camera.identifier for camera in CONNECTED_GOPROS]
         try:
@@ -709,7 +717,7 @@ def record(action: str) -> None:  # numpydoc ignore=GL03
 @click.option("--fps", default=50, type=int)
 @click.option("--sample_rate", default=48000, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def generate_timecode(
+def generate_timecode(  # numpydoc ignore=GL03
     action: str, device: int | None, fps: int, sample_rate: int
 ) -> None:
     """
@@ -721,13 +729,13 @@ def generate_timecode(
     ----------
     action : {"start", "stop"}
         Whether to start or stop generation.
-    device :
-        Defines device to output generated timecode by sounddevice id.
-        Defaults to current system default
-    fps :
-        Sets used timecode standard for available fps settings
-    sample_rate:
-        Samplerate for output stream
+    device : int, optional
+        Sounddevice id of the device used to output the generated timecode.
+        Defaults to the current system default.
+    fps : int, default: 50
+        Timecode standard used for the available fps settings.
+    sample_rate : int, default: 48000
+        Sample rate for the output stream.
     """
     log = logger.bind(command="gen_timecode")
     global ltc_processes
@@ -754,19 +762,21 @@ def generate_timecode(
 
 @cli.command()
 @click.option("--save_path", default=None, type=click.Path())
-def fetchdata(save_path: str | None) -> None:
-    """Fetch recorded media from all connected GoPro cameras.
+def fetchdata(save_path: str | None) -> None:  # numpydoc ignore=GL03
+    """
+    Fetch recorded media from all connected GoPro cameras.
 
     \f
 
     Parameters
     ----------
-        save_path: Directory to save the fetched media to. If None,
-            a default path is used.
+    save_path : str, optional
+        Directory to save the fetched media to. If None, a default path is used.
 
     Raises
     ------
-        RuntimeError: If starting the fetch process fails.
+    RuntimeError
+        If starting the fetch process fails.
     """
     log = logger.bind(command="fetch_data")
     try:
@@ -789,21 +799,28 @@ decode_processes: list[Process] = []
 @click.option("--input_path", default=None, type=click.Path())
 @click.option("--fps", default=50, type=int)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def decode_path(action: str, input_path: str | None, fps: int) -> None:
-    """Start or stop timecode decoding as a background process.
+def decode_path(  # numpydoc ignore=GL03
+    action: str, input_path: str | None, fps: int
+) -> None:
+    """
+    Start or stop timecode decoding as a background process.
 
-    /f
+    \f
 
     Parameters
     ----------
-        action: Either "start" to launch a decode process or "stop" to
-            terminate all running decode processes.
-        input_path: Path to the input file
-        fps: Frame rate used for decoding
+    action : {"start", "stop"}
+        Either "start" to launch a decode process or "stop" to terminate all
+        running decode processes.
+    input_path : str, optional
+        Path to the input file.
+    fps : int, default: 50
+        Frame rate used for decoding.
 
     Raises
     ------
-        RuntimeError: If starting or stopping the process fails.
+    RuntimeError
+        If starting or stopping the process fails.
     """
     global decode_processes
     log = logger.bind(command="decode_path")

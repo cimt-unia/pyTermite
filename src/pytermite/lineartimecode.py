@@ -62,6 +62,13 @@ class LTCGenerator:
     LTC contains timecode information in the format HH:MM:SS:FF,
     where HH is hours, MM is minutes, SS is seconds, and FF is frames. It also
     includes a sync word for synchronization.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration with the keys ``sample_rate``, ``fps`` and ``device``.
+    stop_event : SyncEvent
+        Event signalling the generator to stop producing frames.
     """
 
     def __init__(self, config: dict, stop_event: SyncEvent) -> None:
@@ -87,10 +94,17 @@ class LTCGenerator:
 
     def play_control_sound(self, filename: str, amplification: float = 1.0) -> None:
         """
-        GoPros may be controlled using voice activation.
+        Play a control sound for starting or stopping a GoPro recording.
 
-        This function plays control sounds for starting and stopping recording.
-        The sounds are pre-recorded and stored in the 'audios' directory.
+        GoPros may be controlled using voice activation. The sounds are
+        pre-recorded and stored in the 'audios' directory.
+
+        Parameters
+        ----------
+        filename : str
+            Name of the control sound file without the ``.wav`` extension.
+        amplification : float, default: 1.0
+            Factor by which the sound is amplified before playback.
         """
         base_dir = pathlib.Path(__file__).resolve().parent
         path = base_dir / "audios" / f"{filename}.wav"
@@ -104,7 +118,18 @@ class LTCGenerator:
         print(list(position_map.keys()))
 
     def generate_wav(self, filename: str, duration: int = 10) -> None:
-        """Debug function to generate a wav file with LTC for a given duration."""
+        """
+        Generate a wav file with LTC for a given duration.
+
+        Debug function.
+
+        Parameters
+        ----------
+        filename : str
+            Prefix of the generated file name.
+        duration : int, default: 10
+            Duration of the signal in seconds.
+        """
         total_frames = self.fps * duration
         data: list = []
         for _ in range(total_frames):
@@ -120,6 +145,18 @@ class LTCGenerator:
 
         Convert into representation for a given position in the LTC frame
         (FF, SS, MM, HH).
+
+        Parameters
+        ----------
+        number : int
+            The value to convert.
+        position : str
+            Position in the LTC frame, one of ``"FF"``, ``"SS"``, ``"MM"`` or ``"HH"``.
+
+        Returns
+        -------
+        list
+            Bit values shifted to their place in the LTC word.
         """
         conversions = []
         units = number % 10
@@ -137,7 +174,14 @@ class LTCGenerator:
         return conversions
 
     def create_next_bitword(self) -> int:
-        """Create the next 80-bit word for the LTC based on the current timecode."""
+        """
+        Create the next 80-bit word for the LTC based on the current timecode.
+
+        Returns
+        -------
+        int
+            The 80-bit LTC word.
+        """
         frame_number = self.total_samples // self.samples_per_frame
         ff = frame_number % self.fps
         ss = (frame_number // self.fps) % 60
@@ -158,7 +202,19 @@ class LTCGenerator:
         return word
 
     def sample_word(self, word: int) -> list:
-        """Sample the 80-bit word into a list of audio samples for the LTC signal."""
+        """
+        Sample the 80-bit word into a list of audio samples for the LTC signal.
+
+        Parameters
+        ----------
+        word : int
+            The 80-bit LTC word to sample.
+
+        Returns
+        -------
+        list
+            Audio samples representing the word.
+        """
         samples = []
         level = self.next_level_sign * 0.75
         for i in range(80):
@@ -193,7 +249,20 @@ class LTCGenerator:
     def callback(
         self, outdata: np.ndarray, frames: int, time: "_CData", status: sd.CallbackFlags
     ) -> None:
-        """Retrieve the next LTC frame from the queue and write to the output buffer."""
+        """
+        Retrieve the next LTC frame from the queue and write to the output buffer.
+
+        Parameters
+        ----------
+        outdata : np.ndarray
+            Output buffer the next LTC frame is written to.
+        frames : int
+            Number of frames requested by the audio stream.
+        time : _CData
+            Timing information provided by the audio stream.
+        status : sd.CallbackFlags
+            Status flags of the audio stream.
+        """
         try:
             outdata[:, 0] = self.frame_queue.get_nowait()
         except queue.Empty:
@@ -314,6 +383,13 @@ class LTCDecoder:
         Decode the LTC signal from the already extracted audio track of a video file.
 
         Write the extracted timecode into the metadata of the video file after decoding.
+
+        Parameters
+        ----------
+        input_path : str
+            Path to the video file containing the LTC audio track.
+        fps : int
+            Frame rate used for decoding.
         """
         base_path = ".".join(input_path.split(".")[:-1])
         audio_path = f"{base_path}.wav"
@@ -411,7 +487,16 @@ class LTCDecoder:
 
 
 def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
-    """Decode LTC timecode from a batch of video files using multiprocessing."""
+    """
+    Decode LTC timecode from a batch of video files using multiprocessing.
+
+    Parameters
+    ----------
+    decode_tasks : list
+        Pairs of ``(input_path, fps)`` passed to ``start_ltc_decoder``.
+    max_processes : int, default: 8
+        Number of worker processes used for decoding.
+    """
     with multiprocessing.Pool(processes=max_processes) as pool:
         results = pool.starmap(start_ltc_decoder, decode_tasks)
     for result in results:
@@ -421,7 +506,21 @@ def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
 
 
 def start_ltc_decoder(input_path: str, fps: int = 50) -> tuple[str, bool]:
-    """Start the LTC decoder for a given video file and frame rate."""
+    """
+    Start the LTC decoder for a given video file and frame rate.
+
+    Parameters
+    ----------
+    input_path : str
+        Path to the video file to decode.
+    fps : int, default: 50
+        Frame rate used for decoding.
+
+    Returns
+    -------
+    tuple[str, bool]
+        The input path and whether decoding succeeded.
+    """
     success = False
     try:
         decoder = LTCDecoder()
