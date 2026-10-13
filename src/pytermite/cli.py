@@ -23,11 +23,13 @@ import time
 from multiprocessing import Event, Process
 from multiprocessing.synchronize import Event as SyncEvent
 from pathlib import Path
+from typing import Any
 
 import click
 import sounddevice as sd
 import structlog
 from click_help_colors import HelpColorsGroup
+from open_gopro import GoProResp
 from open_gopro.models.constants import StatusId
 from tabulate import tabulate
 
@@ -587,7 +589,7 @@ def list_settings() -> None:
     log = logger.bind(command="list_settings")
     log.debug("Listing current settings and environment variables")
 
-    async def fetch_all_settings():
+    async def fetch_all_settings() -> tuple[list[GoProResp], list[str]]:
         tasks = [gp.http_command.get_camera_state() for gp in CONNECTED_GOPROS]
         friendly_name = [camera.identifier for camera in CONNECTED_GOPROS]
         try:
@@ -600,8 +602,8 @@ def list_settings() -> None:
 
     responses, friendly_name = asyncio.run(fetch_all_settings())
 
-    for friendly_name, resp in zip(friendly_name, responses):
-        print(f"GoPro: {friendly_name}")
+    for fn, resp in zip(friendly_name, responses, strict=True):
+        print(f"GoPro: {fn}")
 
         # convert GoProResp data into a list of [Setting, Value] pairs
         if resp.data:
@@ -634,7 +636,10 @@ def list_connected() -> None:
 
             print("GoPro: ", gopro.identifier, "\tBattery: ", battery)
 
-        except Exception:
+        except Exception as e:
+            log.warning(
+                f"Error occurred while fetching state for {gopro.identifier}: {e}"
+            )
             continue
 
 
@@ -810,7 +815,7 @@ def decode_path(action: str, input_path: str | None, fps: int) -> None:
 @click.argument("identifier", type=str)
 @click.argument("setting", type=str)
 @click.argument("option", type=str)
-def change_setting(identifier: str, setting: str, option: str):
+def change_setting(identifier: str, setting: str, option: str) -> None:
     global CONNECTED_GOPROS
     log = logger.bind(command="change_setting")
     try:
@@ -818,7 +823,8 @@ def change_setting(identifier: str, setting: str, option: str):
             (
                 con
                 for con in CONNECTED_GOPROS
-                if con._identifier == identifier or con._name == identifier
+                if con.identifier == identifier
+                or (isinstance(con, WiredConnection) and con.name == identifier)
             ),
             None,
         )
@@ -874,45 +880,48 @@ def preview_stream(action: str) -> None:
         _run_repl(click.get_current_context())
 
 
-def _run_preview(serials, stop_event) -> None:
+def _run_preview(
+    serials: set[WiredConnection | WirelessConnection], stop_event: SyncEvent
+) -> None:
     log = logger.bind(command="preview-stream")
-    stream = PreviewStream(serials, stop_event, log)
+    _ = PreviewStream(serials, stop_event, log)
 
 
 @cli.command()
 @click.option("--settings", is_flag=True, show_default=False)
 @click.option("--status", is_flag=True, show_default=False)
 @click.argument("identifiers", default=None, type=str)
-def get_camera_state(identifiers: str, settings: bool, status: bool):
+def get_camera_state(identifiers: str | None, settings: bool, status: bool) -> None:
     global CONNECTED_GOPROS
     log = logger.bind(command="get_camera_state")
     if identifiers is None:
-        identifiers = [con._identifier for con in CONNECTED_GOPROS]
+        identifiers_list = [con.identifier for con in CONNECTED_GOPROS]
     else:
-        identifiers = [arg.strip() for arg in identifiers.split(",") if arg.strip()]
-    table_settings = {}
-    table_statuses = {}
+        identifiers_list = [
+            arg.strip() for arg in identifiers.split(",") if arg.strip()
+        ]
+    table_settings: dict[str, Any] = {}
+    table_statuses: dict[str, Any] = {}
     identifiers_type = []
     try:
-        for identifier in identifiers:
+        for identifier in identifiers_list:
             connection = next(
                 (
                     con
                     for con in CONNECTED_GOPROS
-                    if con._identifier == identifier or con._name == identifier
+                    if con.identifier == identifier
+                    or (isinstance(con, WiredConnection) and con.name == identifier)
                 ),
                 None,
             )
             if connection is None:
                 log.warning(f"{identifier} is not connected")
             else:
-                con_type = (
-                    "Wireless"
-                    if isinstance(connection, WirelessConnection)
-                    else "USB"
-                    if isinstance(connection, WiredConnection)
-                    else "Undefined"
-                )
+                con_type = "Undefined"
+                if isinstance(connection, WirelessConnection):
+                    con_type = "Wireless"
+                elif isinstance(connection, WiredConnection):
+                    con_type = "USB"
                 identifiers_type.append(f"{identifier} ({con_type})")
                 request_path = "gopro/camera/state"
                 response = make_gopro_request(connection, request_path)

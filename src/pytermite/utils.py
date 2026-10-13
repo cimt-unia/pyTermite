@@ -20,8 +20,8 @@ from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any
 
-SETTINGS_MAP = {}
-STATUSES_MAP = {}
+SETTINGS_MAP: dict[str, Any] = {}
+STATUSES_MAP: dict[str, Any] = {}
 
 
 def load_serial_numbers_from_json(filepath: pathlib.Path | str) -> dict[str, str]:
@@ -143,6 +143,8 @@ def write_json_to_file(data: dict, filepath: pathlib.Path | str) -> None:
 def parse_setting(
     setting: str, option: str, mode: str = "id"
 ) -> tuple[str | None, str | None]:
+    setting_id: str | None = None
+    option_id: str | None = None
     if mode not in ["id", "name"]:
         return None, None
     global SETTINGS_MAP
