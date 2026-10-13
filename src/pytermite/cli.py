@@ -541,6 +541,16 @@ async def _connect_to_gopros() -> None:
         mapping: dict[str, WiredConnection] | dict[str, WirelessConnection],
         connected: WiredConnection | WirelessConnection,
     ) -> None:
+        """
+        Remove a connection from a mapping of connections.
+
+        Parameters
+        ----------
+        mapping : dict
+            Mapping of keys to connections to remove the connection from.
+        connected : WiredConnection or WirelessConnection
+            Connection to remove.
+        """
         # Remove by object identity because mapping keys can be camera names,
         # serials, or identifiers depending on how the connection was created.
         for key, value in mapping.items():
@@ -747,6 +757,8 @@ def generate_timecode(
 def fetchdata(save_path: str | None) -> None:
     """Fetch recorded media from all connected GoPro cameras.
 
+    \f
+
     Parameters
     ----------
         save_path: Directory to save the fetched media to. If None,
@@ -779,6 +791,8 @@ decode_processes: list[Process] = []
 @click.argument("action", type=click.Choice(["start", "stop"]))
 def decode_path(action: str, input_path: str | None, fps: int) -> None:
     """Start or stop timecode decoding as a background process.
+
+    /f
 
     Parameters
     ----------
@@ -816,6 +830,20 @@ def decode_path(action: str, input_path: str | None, fps: int) -> None:
 @click.argument("setting", type=str)
 @click.argument("option", type=str)
 def change_setting(identifier: str, setting: str, option: str) -> None:
+    """
+    Change a setting of a connected GoPro.
+
+    /f
+
+    Parameters
+    ----------
+    identifier : str
+        Identifier or name of the connected GoPro.
+    setting : str
+        Setting ID or name to change.
+    option : str
+        Option ID or name to set the setting to.
+    """
     global CONNECTED_GOPROS
     log = logger.bind(command="change_setting")
     try:
@@ -847,6 +875,16 @@ def change_setting(identifier: str, setting: str, option: str) -> None:
 @cli.command()
 @click.argument("action", type=click.Choice(["start", "stop"]), default=None)
 def preview_stream(action: str) -> None:
+    """
+    Start or stop the preview stream of the connected GoPros.
+
+    /f
+
+    Parameters
+    ----------
+    action : {"start", "stop"}
+        Whether to start a new preview stream or stop the running ones.
+    """
     log = logger.bind(command="preview-stream")
     global CONNECTED_GOPROS
     global PREVIEW_PROCESSES
@@ -883,6 +921,16 @@ def preview_stream(action: str) -> None:
 def _run_preview(
     serials: set[WiredConnection | WirelessConnection], stop_event: SyncEvent
 ) -> None:
+    """
+    Run the preview stream in the current process.
+
+    Parameters
+    ----------
+    serials : set of WiredConnection or WirelessConnection
+        Connections to show the preview streams of.
+    stop_event : multiprocessing.synchronize.Event
+        Event that, when set, stops the preview.
+    """
     log = logger.bind(command="preview-stream")
     _ = PreviewStream(serials, stop_event, log)
 
@@ -892,6 +940,21 @@ def _run_preview(
 @click.option("--status", is_flag=True, show_default=False)
 @click.argument("identifiers", default=None, type=str)
 def get_camera_state(identifiers: str | None, settings: bool, status: bool) -> None:
+    """
+    Show the settings and/or statuses of connected GoPros.
+
+    /f
+
+    Parameters
+    ----------
+    identifiers : str or None
+        Comma-separated identifiers or names of the GoPros to query. If None,
+        all connected GoPros are queried.
+    settings : bool
+        Whether to include the camera settings in the output.
+    status : bool
+        Whether to include the camera statuses in the output.
+    """
     global CONNECTED_GOPROS
     log = logger.bind(command="get_camera_state")
     if identifiers is None:
@@ -963,6 +1026,16 @@ def get_camera_state(identifiers: str | None, settings: bool, status: bool) -> N
 
 
 def _run_generator(config: dict, stop_event: SyncEvent) -> None:
+    """
+    Run the linear timecode generator in the current process.
+
+    Parameters
+    ----------
+    config : dict
+        Generator configuration.
+    stop_event : multiprocessing.synchronize.Event
+        Event that, when set, stops the generator.
+    """
     generator = LTCGenerator(config, stop_event)
     generator.run()
 

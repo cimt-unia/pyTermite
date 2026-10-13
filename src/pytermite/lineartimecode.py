@@ -236,10 +236,32 @@ class LTCDecoder:
 
     @staticmethod
     def _extract_audio(input_path: str, wav_path: str) -> None:
+        """
+        Extract the audio track of a video file to a WAV file.
+
+        Parameters
+        ----------
+        input_path : str
+            Path to the input video file.
+        wav_path : str
+            Path of the WAV file to write.
+        """
         ffmpeg.input(input_path).output(wav_path, vn=None).run(overwrite_output=True)
 
     @staticmethod
     def _write_timecode(input_path: str, output_path: str, timecode: str) -> None:
+        """
+        Copy a video file and set its timecode metadata.
+
+        Parameters
+        ----------
+        input_path : str
+            Path to the input video file.
+        output_path : str
+            Path of the output video file to write.
+        timecode : str
+            Timecode to write into the output file, e.g. "01:00:00:00".
+        """
         ffmpeg.input(input_path).output(output_path, c="copy", timecode=timecode).run(
             overwrite_output=True
         )
@@ -248,6 +270,23 @@ class LTCDecoder:
     def _convert_position_bits(
         frame_bits: np.typing.NDArray, position: str, fps: int
     ) -> np.typing.NDArray:
+        """
+        Extract the unit and tens bits of a timecode position from frame bits.
+
+        Parameters
+        ----------
+        frame_bits : np.typing.NDArray
+            Bits of each frame, one row per frame.
+        position : str
+            Timecode position to convert, e.g. "FF" or "HH".
+        fps : int
+            Frame rate the position map is looked up with.
+
+        Returns
+        -------
+        np.typing.NDArray
+            Decoded value of the position for each frame.
+        """
         units = None
         tens = None
         shift_units = position_map[fps][position]["units"]

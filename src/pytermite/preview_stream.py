@@ -5,6 +5,8 @@
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
+"""Live preview of GoPro camera streams in a Tk window."""
+
 import asyncio
 import math
 import subprocess
@@ -20,6 +22,22 @@ from pytermite.connection import WiredConnection, WirelessConnection, make_gopro
 
 
 class PreviewStream:
+    """
+    Show the live preview streams of several GoPros in one window.
+
+    Only one instance can run at a time; creating another while one is active
+    logs a warning and returns without starting a preview.
+
+    Parameters
+    ----------
+    connection : set of WiredConnection or WirelessConnection
+        Connections whose streams should be shown.
+    stop_event : multiprocessing.synchronize.Event
+        Event that, when set, stops the preview.
+    logger : structlog.BoundLogger
+        Logger used for status and error messages.
+    """
+
     # guards against overlapping preview sessions
     _active_instance: "PreviewStream | None" = None
 
@@ -60,7 +78,11 @@ class PreviewStream:
             PreviewStream._active_instance = None
 
     def preview_start(self) -> None:
+        """
+        Assign a UDP port to each camera and start the streams.
 
+        Runs the asynchronous stream setup in its own event loop.
+        """
         total_canvas_width = 1000
 
         for index, connection in enumerate(self.connection):
@@ -69,6 +91,12 @@ class PreviewStream:
         asyncio.run(self.show_streams(total_canvas_width))
 
     def on_close(self) -> None:
+        """
+        Stop all streams and close the preview window.
+
+        Sets the stop event, stops the cameras' streams, destroys the window and
+        kills any ffmpeg processes still running.
+        """
         self.stop_event.set()
         self.preview_stop()
         self.root.destroy()
@@ -76,6 +104,7 @@ class PreviewStream:
             stream.process.kill() if stream.process else None
 
     def preview_stop(self) -> None:
+        """Ask every camera to stop its stream and log failures."""
         for ip in self.ips:
             response = make_gopro_request(ip, "gopro/camera/stream/stop")
 
@@ -83,6 +112,14 @@ class PreviewStream:
                 self.logger.warning(f"Failed to stop stream for {ip}: {response}")
 
     async def show_streams(self, total_canvas_width: int) -> None:
+        """
+        Start the cameras' streams and display them until the stop event is set.
+
+        Parameters
+        ----------
+        total_canvas_width : int
+            Width in pixels of the whole preview canvas, split among the streams.
+        """
         for connection in self.connection:
             response = make_gopro_request(
                 connection,
@@ -109,6 +146,27 @@ class PreviewStream:
 
 
 class UDPReceiver:
+    """
+    Receive an MPEG-TS UDP stream via ffmpeg and draw it onto a canvas cell.
+
+    Parameters
+    ----------
+    canvas : tkinter.Canvas
+        Canvas the frames are drawn on.
+    row : int
+        Row of the cell on the canvas grid.
+    col : int
+        Column of the cell on the canvas grid.
+    ip : str
+        IP address of the camera streaming to this receiver.
+    port : int
+        UDP port to listen on.
+    canvas_size : int
+        Number of cells per row and column of the canvas grid.
+    total_canvas_width : int
+        Width in pixels of the whole canvas.
+    """
+
     def __init__(
         self,
         canvas: tk.Canvas,
@@ -131,6 +189,12 @@ class UDPReceiver:
         self.process: subprocess.Popen[bytes] | None = None
 
     def start(self) -> None:
+        """
+        Start ffmpeg and draw decoded frames until the stream ends.
+
+        Frames are read as raw RGB from ffmpeg's stdout and scheduled for drawing
+        on the Tk main loop.
+        """
         width = max(self.total_canvas_width // self.canvas_size, 320)
         height = (width * 9) // 16
         frame_size = width * height * 3
@@ -170,6 +234,18 @@ class UDPReceiver:
             self.canvas.after(0, self._draw_frame, image, width, height)
 
     def _draw_frame(self, image: PIL.Image.Image, width: int, height: int) -> None:
+        """
+        Draw a frame into this receiver's cell of the canvas.
+
+        Parameters
+        ----------
+        image : PIL.Image.Image
+            Frame to draw.
+        width : int
+            Width of the frame in pixels.
+        height : int
+            Height of the frame in pixels.
+        """
         img_tk = PIL.ImageTk.PhotoImage(image)
         self.current_img = img_tk
 

@@ -40,6 +40,11 @@ except PackageNotFoundError:
 
 
 def _set_environment() -> None:
+    """
+    Set the PYTERMITE_CONFIG_PATH environment variable if it is not set.
+
+    The default path depends on the operating system and is created if missing.
+    """
     config_path = os.environ.get("PYTERMITE_CONFIG_PATH")
     if not config_path:
         if sys.platform == "win32":
@@ -66,6 +71,12 @@ _set_environment()
 
 
 async def _is_bluetooth_available() -> None:
+    """
+    Check whether Bluetooth is available.
+
+    Sets the PYTERMITE_BLUETOOTH_AVAILABLE environment variable to "true" if a
+    BleakScanner can be started.
+    """
     try:
         # Try to instantiate a BleakScanner (does not require a device to be powered on)
         scanner = BleakScanner()

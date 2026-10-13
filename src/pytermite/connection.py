@@ -615,6 +615,7 @@ async def _wait_for_user_interrupt_unix() -> None:
     stdin_fd = sys.stdin.fileno()
 
     def _on_stdin_ready() -> None:
+        """Read a line from stdin once it is ready, unless input is already done."""
         if input_ready.done():
             return
         try:
@@ -760,6 +761,20 @@ class GoProListener(ServiceListener):
 
     @staticmethod
     async def _check_and_add(zc: Zeroconf, type_: str, name: str, serial: str) -> None:
+        """
+        Resolve a discovered mDNS service and add its camera if it has info.
+
+        Parameters
+        ----------
+        zc : Zeroconf
+            Zeroconf instance used to request the service info.
+        type_ : str
+            Fully qualified mDNS service type.
+        name : str
+            Fully qualified mDNS service name.
+        serial : str
+            Serial number of the camera, used in log messages.
+        """
         info = AsyncServiceInfo(type_, name)
         if not await info.async_request(zc, timeout=3000):
             await logger.adebug(f"Could not resolve service info for {serial}")

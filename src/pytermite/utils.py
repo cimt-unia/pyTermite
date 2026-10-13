@@ -110,6 +110,20 @@ def serialize_dict(d: dict) -> dict:
 
 
 def serializable_connections(connections: set) -> set:
+    """
+    Copy connections and strip the attributes that cannot be pickled.
+
+    Parameters
+    ----------
+    connections : set
+        Connections to copy.
+
+    Returns
+    -------
+    set
+        Copies of the connections without API, streaming and event loop
+        references.
+    """
     cleaned_connections = set()
     for con in connections:
         con_copy = copy.copy(con)
@@ -143,6 +157,24 @@ def write_json_to_file(data: dict, filepath: pathlib.Path | str) -> None:
 def parse_setting(
     setting: str, option: str, mode: str = "id"
 ) -> tuple[str | None, str | None]:
+    """
+    Resolve a setting and one of its options from IDs or names.
+
+    Parameters
+    ----------
+    setting : str
+        Setting ID or setting name.
+    option : str
+        Option ID or option name of the setting.
+    mode : {"id", "name"}, default "id"
+        Whether to return the IDs or the names of the setting and option.
+
+    Returns
+    -------
+    tuple of (str or None, str or None)
+        The setting and option in the requested mode, or ``(None, None)`` if
+        they cannot be resolved or ``mode`` is invalid.
+    """
     setting_id: str | None = None
     option_id: str | None = None
     if mode not in ["id", "name"]:
@@ -186,6 +218,19 @@ def parse_setting(
 
 
 def parse_status(status: str) -> str:
+    """
+    Translate a status ID into its human-readable name.
+
+    Parameters
+    ----------
+    status : str
+        Status ID to translate.
+
+    Returns
+    -------
+    str
+        The status name, or ``status`` itself if it is unknown.
+    """
     global STATUSES_MAP
     if len(STATUSES_MAP) == 0:
         with pathlib.Path("config/OpenGoPro_Statuses.json").open("r") as f:
