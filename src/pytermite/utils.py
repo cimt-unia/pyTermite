@@ -18,10 +18,29 @@ import json
 import pathlib
 from dataclasses import asdict, is_dataclass
 from enum import Enum
+from importlib import resources
 from typing import Any
 
 SETTINGS_MAP: dict[str, Any] = {}
 STATUSES_MAP: dict[str, Any] = {}
+
+
+def _load_bundled_json(filename: str) -> dict[str, Any]:
+    """
+    Load a JSON mapping that is shipped inside the ``pytermite`` package.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the file inside the ``pytermite/config`` package directory.
+
+    Returns
+    -------
+    dict[str, Any]
+        Parsed JSON content.
+    """
+    with resources.files("pytermite").joinpath("config", filename).open("r") as f:
+        return json.load(f)
 
 
 def load_serial_numbers_from_json(filepath: pathlib.Path | str) -> dict[str, str]:
@@ -181,8 +200,7 @@ def parse_setting(
         return None, None
     global SETTINGS_MAP
     if len(SETTINGS_MAP) == 0:
-        with pathlib.Path("config/OpenGoPro_Settings.json").open("r") as f:
-            SETTINGS_MAP = json.load(f)
+        SETTINGS_MAP = _load_bundled_json("OpenGoPro_Settings.json")
 
     if setting.isdigit() and setting in SETTINGS_MAP:
         setting_id = setting
@@ -233,6 +251,5 @@ def parse_status(status: str) -> str:
     """
     global STATUSES_MAP
     if len(STATUSES_MAP) == 0:
-        with pathlib.Path("config/OpenGoPro_Statuses.json").open("r") as f:
-            STATUSES_MAP = json.load(f)
+        STATUSES_MAP = _load_bundled_json("OpenGoPro_Statuses.json")
     return STATUSES_MAP[status] if status in STATUSES_MAP else status
