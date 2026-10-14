@@ -593,32 +593,39 @@ async def _connect_to_gopros() -> None:
         )
 
 
+async def _fetch_all_settings(log: Any) -> tuple[list[GoProResp], list[str]]:
+    """
+    Fetch the camera state and identifier of all connected GoPros.
+
+    Parameters
+    ----------
+    log : Any
+        Bound logger used to report missing responses.
+
+    Returns
+    -------
+    tuple[list[GoProResp], list[str]]
+        Camera state responses and the identifiers of the cameras, in the same
+        order. The responses list is empty if no response was received.
+    """
+    tasks = [gp.http_command.get_camera_state() for gp in CONNECTED_GOPROS]
+    friendly_name = [camera.identifier for camera in CONNECTED_GOPROS]
+    try:
+        result = await asyncio.gather(*tasks)
+    except TypeError:
+        log.warning("No responses received from GoPro cameras.")
+        result = []
+
+    return result, friendly_name
+
+
 @cli.command()
-def list_settings() -> None:  # numpydoc ignore=RT01
+def list_settings() -> None:
     """List current settings and environment variables."""
     log = logger.bind(command="list_settings")
     log.debug("Listing current settings and environment variables")
 
-    async def fetch_all_settings() -> tuple[list[GoProResp], list[str]]:
-        """
-        Fetch the camera state of all connected GoPros.
-
-        Returns
-        -------
-        tuple[list[GoProResp], list[str]]
-            Camera state responses and the friendly names of the cameras.
-        """
-        tasks = [gp.http_command.get_camera_state() for gp in CONNECTED_GOPROS]
-        friendly_name = [camera.identifier for camera in CONNECTED_GOPROS]
-        try:
-            result = await asyncio.gather(*tasks)
-        except TypeError:
-            log.warning("No responses received from GoPro cameras.")
-            result = []
-
-        return result, friendly_name
-
-    responses, friendly_name = asyncio.run(fetch_all_settings())
+    responses, friendly_name = asyncio.run(_fetch_all_settings(log))
 
     for fn, resp in zip(friendly_name, responses, strict=True):
         print(f"GoPro: {fn}")
