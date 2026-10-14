@@ -99,3 +99,5 @@ jobs:
 
       - name: Publish Python distribution to GitHub Releases
         run: gh release create ${GITHUB_REF_NAME} dist/* -F CHANGES.md
+        env:
+          GH_TOKEN: ${{ github.token }}
