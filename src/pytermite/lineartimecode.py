@@ -23,8 +23,8 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 import structlog
-from pylsl import StreamInfo, StreamOutlet
-from pylsl.lib import cf_float32
+from pylsl import IRREGULAR_RATE, StreamInfo, StreamOutlet, local_clock
+from pylsl.lib import cf_string
 
 from pytermite.config import PYTERMITE_LOG_LEVEL
 
@@ -62,6 +62,13 @@ class LTCGenerator:
     LTC contains timecode information in the format HH:MM:SS:FF,
     where HH is hours, MM is minutes, SS is seconds, and FF is frames. It also
     includes a sync word for synchronization.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration with the keys ``sample_rate``, ``fps`` and ``device``.
+    stop_event : multiprocessing.synchronize.Event
+        Event that stops the generation when set.
     """
 
     def __init__(self, config: dict, stop_event: SyncEvent) -> None:
@@ -76,21 +83,28 @@ class LTCGenerator:
         self.next_level_sign = -1
         self.frame_queue: queue.Queue = queue.Queue(maxsize=self.fps)
         self.info = StreamInfo(
-            name="LtcStream",
-            type="Audio",
+            name="LtcTimecode",
+            type="Markers",
             channel_count=1,
-            nominal_srate=self.sample_rate,
-            channel_format=cf_float32,
-            source_id="ltc_audio_stream",
+            nominal_srate=IRREGULAR_RATE,
+            channel_format=cf_string,
+            source_id="ltc_timecode_stream",
         )
         self.outlet = StreamOutlet(self.info)
 
     def play_control_sound(self, filename: str, amplification: float = 1.0) -> None:
         """
-        GoPros may be controlled using voice activation.
+        Play a control sound to start or stop a GoPro recording.
 
-        This function plays control sounds for starting and stopping recording.
-        The sounds are pre-recorded and stored in the 'audios' directory.
+        GoPros may be controlled using voice activation. The sounds are
+        pre-recorded and stored in the 'audios' directory.
+
+        Parameters
+        ----------
+        filename : str
+            Name of the control sound file, without the ``.wav`` extension.
+        amplification : float, default 1.0
+            Factor by which the sound is amplified before playback.
         """
         base_dir = pathlib.Path(__file__).resolve().parent
         path = base_dir / "audios" / f"{filename}.wav"
@@ -104,11 +118,21 @@ class LTCGenerator:
         print(list(position_map.keys()))
 
     def generate_wav(self, filename: str, duration: int = 10) -> None:
-        """Debug function to generate a wav file with LTC for a given duration."""
+        """
+        Debug function to generate a wav file with LTC for a given duration.
+
+        Parameters
+        ----------
+        filename : str
+            Prefix of the output file. The file is named
+            ``{filename}_{fps}_{duration}.wav``.
+        duration : int, default 10
+            Duration of the signal in seconds.
+        """
         total_frames = self.fps * duration
         data: list = []
         for _ in range(total_frames):
-            word = self.create_next_bitword()
+            word, _ = self.create_next_bitword()
             samples = self.sample_word(word)
             data.extend(samples)
         data_array = np.array(data, dtype=np.float32)
@@ -120,6 +144,18 @@ class LTCGenerator:
 
         Convert into representation for a given position in the LTC frame
         (FF, SS, MM, HH).
+
+        Parameters
+        ----------
+        number : int
+            Value to convert, e.g. the frame or second number.
+        position : str
+            Position in the LTC frame, one of "FF", "SS", "MM" or "HH".
+
+        Returns
+        -------
+        list of int
+            Bit values, already shifted to their positions in the LTC word.
         """
         conversions = []
         units = number % 10
@@ -136,8 +172,17 @@ class LTCGenerator:
                 continue
         return conversions
 
-    def create_next_bitword(self) -> int:
-        """Create the next 80-bit word for the LTC based on the current timecode."""
+    def create_next_bitword(self) -> tuple[int, str]:
+        """
+        Create the next 80-bit word for the LTC based on the current timecode.
+
+        Returns
+        -------
+        word : int
+            The 80-bit LTC word.
+        timecode : str
+            The encoded timecode in the format "HH:MM:SS:FF".
+        """
         frame_number = self.total_samples // self.samples_per_frame
         ff = frame_number % self.fps
         ss = (frame_number // self.fps) % 60
@@ -155,10 +200,23 @@ class LTCGenerator:
         for conv in conversions:
             word |= conv
 
-        return word
+        timecode = f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
+        return word, timecode
 
     def sample_word(self, word: int) -> list:
-        """Sample the 80-bit word into a list of audio samples for the LTC signal."""
+        """
+        Sample the 80-bit word into a list of audio samples for the LTC signal.
+
+        Parameters
+        ----------
+        word : int
+            The 80-bit LTC word to sample.
+
+        Returns
+        -------
+        list of float
+            Audio samples of the encoded word.
+        """
         samples = []
         level = self.next_level_sign * 0.75
         for i in range(80):
@@ -184,22 +242,42 @@ class LTCGenerator:
         """
         n = 2 if self.double_frames else 1
         while not self.stop_event.is_set():
-            word = self.create_next_bitword()
-            samples = self.sample_word(word)
-            for _ in range(n):
-                self.frame_queue.put(np.array(samples, dtype=np.float32))
+            word, timecode = self.create_next_bitword()
+            samples = np.array(self.sample_word(word), dtype=np.float32)
+            for i in range(n):
+                # Only the first copy carries the timecode: one marker per word.
+                self.frame_queue.put((samples, timecode if i == 0 else None))
 
     # ruff: ignore[ARG002]
     def callback(
         self, outdata: np.ndarray, frames: int, time: "_CData", status: sd.CallbackFlags
     ) -> None:
-        """Retrieve the next LTC frame from the queue and write to the output buffer."""
+        """
+        Write the next LTC frame from the queue to the output buffer.
+
+        The timecode of the frame is pushed as a marker, timestamped with the
+        time at which the frame is sent to the output device.
+
+        Parameters
+        ----------
+        outdata : np.ndarray
+            Output buffer that is filled with the next LTC samples.
+        frames : int
+            Number of frames requested by the audio stream.
+        time : _CData
+            Timing information provided by the audio stream.
+        status : sounddevice.CallbackFlags
+            Status flags of the audio stream.
+        """
         try:
-            outdata[:, 0] = self.frame_queue.get_nowait()
+            samples, timecode = self.frame_queue.get_nowait()
         except queue.Empty:
             outdata[:] = 0
-        finally:
-            self.outlet.push_chunk(outdata.copy())
+            return
+        outdata[:, 0] = samples
+        if timecode is not None:
+            timestamp = local_clock()
+            self.outlet.push_sample([timecode], timestamp)
 
     def run(self) -> None:
         """
@@ -236,10 +314,32 @@ class LTCDecoder:
 
     @staticmethod
     def _extract_audio(input_path: str, wav_path: str) -> None:
+        """
+        Extract the audio track of a video file to a WAV file.
+
+        Parameters
+        ----------
+        input_path : str
+            Path to the input video file.
+        wav_path : str
+            Path of the WAV file to write.
+        """
         ffmpeg.input(input_path).output(wav_path, vn=None).run(overwrite_output=True)
 
     @staticmethod
     def _write_timecode(input_path: str, output_path: str, timecode: str) -> None:
+        """
+        Copy a video file and set its timecode metadata.
+
+        Parameters
+        ----------
+        input_path : str
+            Path to the input video file.
+        output_path : str
+            Path of the output video file to write.
+        timecode : str
+            Timecode to write into the output file, e.g. "01:00:00:00".
+        """
         ffmpeg.input(input_path).output(output_path, c="copy", timecode=timecode).run(
             overwrite_output=True
         )
@@ -248,6 +348,23 @@ class LTCDecoder:
     def _convert_position_bits(
         frame_bits: np.typing.NDArray, position: str, fps: int
     ) -> np.typing.NDArray:
+        """
+        Extract the unit and tens bits of a timecode position from frame bits.
+
+        Parameters
+        ----------
+        frame_bits : np.typing.NDArray
+            Bits of each frame, one row per frame.
+        position : str
+            Timecode position to convert, e.g. "FF" or "HH".
+        fps : int
+            Frame rate the position map is looked up with.
+
+        Returns
+        -------
+        np.typing.NDArray
+            Decoded value of the position for each frame.
+        """
         units = None
         tens = None
         shift_units = position_map[fps][position]["units"]
@@ -275,6 +392,13 @@ class LTCDecoder:
         Decode the LTC signal from the already extracted audio track of a video file.
 
         Write the extracted timecode into the metadata of the video file after decoding.
+
+        Parameters
+        ----------
+        input_path : str
+            Path to the input video file.
+        fps : int
+            Frame rate of the LTC signal.
         """
         base_path = ".".join(input_path.split(".")[:-1])
         audio_path = f"{base_path}.wav"
@@ -372,7 +496,16 @@ class LTCDecoder:
 
 
 def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
-    """Decode LTC timecode from a batch of video files using multiprocessing."""
+    """
+    Decode LTC timecode from a batch of video files using multiprocessing.
+
+    Parameters
+    ----------
+    decode_tasks : list of tuple of (str, int)
+        Pairs of ``(input_path, fps)`` to decode, one per video file.
+    max_processes : int, default 8
+        Maximum number of worker processes.
+    """
     with multiprocessing.Pool(processes=max_processes) as pool:
         results = pool.starmap(start_ltc_decoder, decode_tasks)
     for result in results:
@@ -382,7 +515,21 @@ def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
 
 
 def start_ltc_decoder(input_path: str, fps: int = 50) -> tuple[str, bool]:
-    """Start the LTC decoder for a given video file and frame rate."""
+    """
+    Start the LTC decoder for a given video file and frame rate.
+
+    Parameters
+    ----------
+    input_path : str
+        Path to the input video file.
+    fps : int, default 50
+        Frame rate of the LTC signal.
+
+    Returns
+    -------
+    tuple of (str, bool)
+        The input path and whether decoding succeeded.
+    """
     success = False
     try:
         decoder = LTCDecoder()

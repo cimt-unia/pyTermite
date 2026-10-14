@@ -186,6 +186,30 @@ def _fetch_recoding(
     cam_id: str,
     idx: int,
 ) -> tuple[str, int, bool, tuple[Path, str]]:
+    """
+    Download a recording from a camera and save it to disk.
+
+    Parameters
+    ----------
+    connection : WirelessConnection or WiredConnection
+        Connection to the camera holding the recording.
+    request_path : str
+        API path of the recording to download.
+    save_path_cam : Path
+        Directory to save the recording in.
+    filename : str
+        Name of the file to save the recording as.
+    cam_id : str
+        Identifier of the camera.
+    idx : int
+        Index of the recording in the camera's media list.
+
+    Returns
+    -------
+    tuple
+        Camera ID, index, whether the download succeeded, and a tuple of the
+        save directory and filename.
+    """
     response = make_gopro_request(connection, request_path)
     status = False
     if response and response.status_code == 200:
@@ -198,6 +222,14 @@ def _fetch_recoding(
 
 
 def _get_saved_entries() -> dict:
+    """
+    Load the saved fetch entries from the fetch recordings file.
+
+    Returns
+    -------
+    dict
+        Saved entries, or an empty dict if the file does not exist.
+    """
     global FETCH_RECORDINGS
     try:
         with Path(FETCH_RECORDINGS).open() as f:
@@ -208,6 +240,14 @@ def _get_saved_entries() -> dict:
 
 
 def _save_entries(saved_entries: dict) -> None:
+    """
+    Write the fetch entries to the fetch recordings file.
+
+    Parameters
+    ----------
+    saved_entries : dict
+        Entries to save, replacing the file's previous content.
+    """
     global FETCH_RECORDINGS
     with Path(FETCH_RECORDINGS).open("w") as f:
         json.dump(saved_entries, f)
