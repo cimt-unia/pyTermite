@@ -9,7 +9,6 @@
 
 import asyncio
 import math
-import subprocess
 import threading
 import tkinter as tk
 from multiprocessing.synchronize import Event as SyncEvent
@@ -186,7 +185,7 @@ class UDPReceiver:
         self.total_canvas_width = total_canvas_width
         self.current_img: PIL.ImageTk.PhotoImage | None = None
         self.canvas_image_id: int | None = None
-        self.process: subprocess.Popen[bytes] | None = None
+        self.process: asyncio.subprocess.Process | None = None
 
     def start(self) -> None:
         """
@@ -218,17 +217,40 @@ class UDPReceiver:
             "pipe:1",
         ]
 
-        self.process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        asyncio.run(self._read_frames(cmd, width, height, frame_size))
+
+    async def _read_frames(
+        self, cmd: list[str], width: int, height: int, frame_size: int
+    ) -> None:
+        """
+        Run ffmpeg and schedule each complete frame from its stdout for drawing.
+
+        Parameters
+        ----------
+        cmd : list of str
+            Command calling ffmpeg that writes raw RGB frames to stdout.
+        width : int
+            Width of each frame in pixels.
+        height : int
+            Height of each frame in pixels.
+        frame_size : int
+            Size of one raw RGB frame in bytes.
+        """
+        self.process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
 
-        while (
-            raw_bytes := self.process.stdout.read(frame_size)
-            if self.process.stdout
-            else None
-        ):
-            if len(raw_bytes) != frame_size:
-                continue
+        if self.process.stdout is None:
+            return
+
+        while True:
+            try:
+                raw_bytes = await self.process.stdout.readexactly(frame_size)
+            except asyncio.IncompleteReadError:
+                break
+
             image = PIL.Image.frombytes("RGB", (width, height), raw_bytes)
 
             self.canvas.after(0, self._draw_frame, image, width, height)
