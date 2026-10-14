@@ -106,7 +106,9 @@ async def get_preset_status(
         # querystring = {"include-hidden": "0"}  # Currently not working
 
         global TIMEOUT
-        response = requests.request("GET", url, timeout=TIMEOUT)
+        response = await asyncio.to_thread(
+            requests.request, "GET", url, timeout=TIMEOUT
+        )
         state = response.json()
 
         # Currently not working in open_gopro
