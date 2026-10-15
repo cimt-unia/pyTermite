@@ -1,0 +1,596 @@
+{
+  "2": {
+    "name": "Video Resolution",
+    "options": {
+      "1": "4K",
+      "4": "2.7K",
+      "6": "2.7K 4:3",
+      "7": "1440",
+      "9": "1080",
+      "12": "720",
+      "18": "4K 4:3",
+      "24": "5K",
+      "25": "5K 4:3",
+      "26": "5.3K 8:7",
+      "27": "5.3K 4:3",
+      "28": "4K 8:7",
+      "35": "5.3K 21:9",
+      "36": "4K 21:9",
+      "37": "4K 1:1",
+      "38": "900",
+      "100": "5.3K",
+      "107": "5.3K 8:7 V2",
+      "108": "4K 8:7 V2",
+      "109": "4K 9:16 V2",
+      "110": "1080 9:16 V2",
+      "111": "2.7K 4:3 V2",
+      "112": "4K 4:3 V2",
+      "113": "5.3K 4:3 V2"
+    }
+  },
+  "3": {
+    "name": "Frames Per Second",
+    "options": {
+      "0": "240.0",
+      "1": "120.0",
+      "2": "100.0",
+      "5": "60.0",
+      "6": "50.0",
+      "8": "30.0",
+      "9": "25.0",
+      "10": "24.0",
+      "13": "200.0",
+      "15": "400.0",
+      "16": "360.0",
+      "17": "300.0"
+    }
+  },
+  "5": {
+    "name": "Video Timelapse Rate",
+    "options": {
+      "0": "0.5 Seconds",
+      "1": "1 Second",
+      "2": "2 Seconds",
+      "3": "5 Seconds",
+      "4": "10 Seconds",
+      "5": "30 Seconds",
+      "6": "60 Seconds",
+      "7": "2 Minutes",
+      "8": "5 Minutes",
+      "9": "30 Minutes",
+      "10": "60 Minutes",
+      "11": "3 Seconds"
+    }
+  },
+  "30": {
+    "name": "Photo Timelapse Rate",
+    "options": {
+      "11": "3 Seconds",
+      "100": "60 Minutes",
+      "101": "30 Minutes",
+      "102": "5 Minutes",
+      "103": "2 Minutes",
+      "104": "60 Seconds",
+      "105": "30 Seconds",
+      "106": "10 Seconds",
+      "107": "5 Seconds",
+      "108": "2 Seconds",
+      "109": "1 Second",
+      "110": "0.5 Seconds"
+    }
+  },
+  "32": {
+    "name": "Nightlapse Rate",
+    "options": {
+      "4": "4 Seconds",
+      "5": "5 Seconds",
+      "10": "10 Seconds",
+      "15": "15 Seconds",
+      "20": "20 Seconds",
+      "30": "30 Seconds",
+      "100": "60 Seconds",
+      "120": "2 Minutes",
+      "300": "5 Minutes",
+      "1800": "30 Minutes",
+      "3600": "60 Minutes",
+      "3601": "Auto"
+    }
+  },
+  "43": {
+    "name": "Webcam Digital Lenses",
+    "options": {
+      "0": "Wide",
+      "2": "Narrow",
+      "3": "Superview",
+      "4": "Linear"
+    }
+  },
+  "59": {
+    "name": "Auto Power Down",
+    "options": {
+      "0": "Never",
+      "1": "1 Min",
+      "4": "5 Min",
+      "6": "15 Min",
+      "7": "30 Min",
+      "11": "8 Seconds",
+      "12": "30 Seconds"
+    }
+  },
+  "83": {
+    "name": "GPS",
+    "options": {
+      "0": "Off",
+      "1": "On"
+    }
+  },
+  "91": {
+    "name": "LED",
+    "options": {
+      "0": "Off",
+      "2": "On",
+      "3": "All On",
+      "4": "All Off",
+      "5": "Front Off Only",
+      "100": "Back Only"
+    }
+  },
+  "108": {
+    "name": "Video Aspect Ratio",
+    "options": {
+      "0": "4:3",
+      "1": "16:9",
+      "3": "8:7",
+      "4": "9:16",
+      "5": "21:9",
+      "6": "1:1"
+    }
+  },
+  "121": {
+    "name": "Video Lens",
+    "options": {
+      "0": "Wide",
+      "2": "Narrow",
+      "3": "Superview",
+      "4": "Linear",
+      "7": "Max SuperView",
+      "8": "Linear + Horizon Leveling",
+      "9": "HyperView",
+      "10": "Linear + Horizon Lock",
+      "11": "Max HyperView",
+      "12": "Ultra SuperView",
+      "13": "Ultra Wide",
+      "14": "Ultra Linear",
+      "104": "Ultra HyperView"
+    }
+  },
+  "122": {
+    "name": "Photo Lens",
+    "options": {
+      "0": "Wide 12 MP",
+      "10": "Linear 12 MP",
+      "19": "Narrow",
+      "27": "Wide 23 MP",
+      "28": "Linear 23 MP",
+      "31": "Wide 27 MP",
+      "32": "Linear 27 MP",
+      "38": "13MP Linear",
+      "39": "13MP Wide",
+      "40": "13MP Ultra Wide",
+      "41": "Ultra Wide 12 MP",
+      "44": "13MP Ultra Linear",
+      "100": "Max SuperView",
+      "101": "Wide",
+      "102": "Linear"
+    }
+  },
+  "123": {
+    "name": "Time Lapse Digital Lenses",
+    "options": {
+      "19": "Narrow",
+      "31": "Wide 27 MP",
+      "32": "Linear 27 MP",
+      "100": "Max SuperView",
+      "101": "Wide",
+      "102": "Linear"
+    }
+  },
+  "125": {
+    "name": "Photo Output",
+    "options": {
+      "0": "Standard",
+      "1": "Raw",
+      "2": "HDR",
+      "3": "SuperPhoto"
+    }
+  },
+  "128": {
+    "name": "Media Format",
+    "options": {
+      "13": "Time Lapse Video",
+      "20": "Time Lapse Photo",
+      "21": "Night Lapse Photo",
+      "26": "Night Lapse Video"
+    }
+  },
+  "134": {
+    "name": "Anti-Flicker",
+    "options": {
+      "0": "NTSC",
+      "1": "PAL",
+      "2": "60Hz",
+      "3": "50Hz"
+    }
+  },
+  "135": {
+    "name": "Hypersmooth",
+    "options": {
+      "0": "Off",
+      "1": "Low",
+      "2": "High",
+      "3": "Boost",
+      "4": "Auto Boost",
+      "100": "Standard"
+    }
+  },
+  "150": {
+    "name": "Video Horizon Leveling",
+    "options": {
+      "0": "Off",
+      "2": "Locked"
+    }
+  },
+  "151": {
+    "name": "Photo Horizon Leveling",
+    "options": {
+      "0": "Off",
+      "2": "Locked"
+    }
+  },
+  "162": {
+    "name": "Max Lens",
+    "options": {
+      "0": "Off",
+      "1": "On"
+    }
+  },
+  "167": {
+    "name": "HindSight",
+    "options": {
+      "2": "15 Seconds",
+      "3": "30 Seconds",
+      "4": "Off"
+    }
+  },
+  "171": {
+    "name": "Photo Single Interval",
+    "options": {
+      "0": "Off",
+      "2": "0.5s",
+      "3": "1s",
+      "4": "2s",
+      "5": "5s",
+      "6": "10s",
+      "7": "30s",
+      "8": "60s",
+      "9": "120s",
+      "10": "3s"
+    }
+  },
+  "172": {
+    "name": "Photo Interval Duration",
+    "options": {
+      "0": "Off",
+      "1": "15 Seconds",
+      "2": "30 Seconds",
+      "3": "1 Minute",
+      "4": "5 Minutes",
+      "5": "15 Minutes",
+      "6": "30 Minutes",
+      "7": "1 Hour",
+      "8": "2 Hours",
+      "9": "3 Hours"
+    }
+  },
+  "173": {
+    "name": "Video Performance Mode",
+    "options": {
+      "0": "Maximum Video Performance",
+      "1": "Extended Battery",
+      "2": "Tripod / Stationary Video"
+    }
+  },
+  "175": {
+    "name": "Control Mode",
+    "options": {
+      "0": "Easy",
+      "1": "Pro"
+    }
+  },
+  "176": {
+    "name": "Easy Mode Speed",
+    "options": {
+      "0": "8X Ultra Slo-Mo",
+      "1": "4X Super Slo-Mo",
+      "2": "2X Slo-Mo",
+      "3": "1X Speed (Low Light)",
+      "4": "4X Super Slo-Mo (Ext. Batt.)",
+      "5": "2X Slo-Mo (Ext. Batt.)",
+      "6": "1X Speed (Ext. Batt.) (Low Light)",
+      "7": "8X Ultra Slo-Mo (50Hz)",
+      "8": "4X Super Slo-Mo (50Hz)",
+      "9": "2X Slo-Mo (50Hz)",
+      "10": "1X Speed (50Hz) (Low Light)",
+      "11": "4X Super Slo-Mo (50Hz) (Ext. Batt.)",
+      "12": "2X Slo-Mo (50Hz) (Ext. Batt.)",
+      "13": "1X Speed (50Hz) (Ext. Batt.) (Low Light)",
+      "14": "8X Ultra Slo-Mo (Ext. Batt.)",
+      "15": "8X Ultra Slo-Mo (50Hz) (Ext. Batt.)",
+      "16": "8X Ultra Slo-Mo (Long. Batt.)",
+      "17": "4X Super Slo-Mo (Long. Batt.)",
+      "18": "2X Slo-Mo (Long. Batt.)",
+      "19": "1X Speed (Long. Batt.) (Low Light)",
+      "20": "8X Ultra Slo-Mo (50Hz) (Long. Batt.)",
+      "21": "4X Super Slo-Mo (50Hz) (Long. Batt.)",
+      "22": "2X Slo-Mo (50Hz) (Long. Batt.)",
+      "23": "1X Speed (50Hz) (Long. Batt.) (Low Light)",
+      "24": "2X Slo-Mo (4K)",
+      "25": "4X Super Slo-Mo (2.7K)",
+      "26": "2X Slo-Mo (4K) (50Hz)",
+      "27": "4X Super Slo-Mo (2.7K) (50Hz)",
+      "100": "8X Ultra Slo-Mo (V2)",
+      "101": "4X Super Slo-Mo (V2)",
+      "102": "2X Slo-Mo (V2)",
+      "103": "1X Speed (Low Light) (V2)",
+      "104": "8X Ultra Slo-Mo (50Hz) (V2)",
+      "105": "4X Super Slo-Mo (50Hz) (V2)",
+      "106": "2X Slo-Mo (50Hz) (V2)",
+      "107": "1X Speed (50Hz) (Low Light) (V2)",
+      "108": "8X Ultra Slo-Mo (Long. Batt.) (V2)",
+      "109": "4X Super Slo-Mo (Long. Batt.) (V2)",
+      "110": "2X Slo-Mo (Long. Batt.) (V2)",
+      "111": "1X Speed (Long. Batt.) (Low Light) (V2)",
+      "112": "8X Ultra Slo-Mo (50Hz) (Long. Batt.) (V2)",
+      "113": "4X Super Slo-Mo (50Hz) (Long. Batt.) (V2)",
+      "114": "2X Slo-Mo (50Hz) (Long. Batt.) (V2)",
+      "115": "1X Speed (50Hz) (Long. Batt.) (Low Light) (V2)",
+      "116": "2X Slo-Mo (4K) (V2)",
+      "117": "2X Slo-Mo (4K) (50Hz) (V2)",
+      "118": "1X Speed (Low Light) (V2) (Vertical)",
+      "119": "1X Speed (50Hz) (Low Light) (V2) (Vertical)",
+      "120": "2X Slo-Mo (V2) (Vertical)",
+      "121": "2X Slo-Mo (50Hz) (V2) (Vertical)",
+      "122": "1X Speed (Full Frame) (Low Light) (V2)",
+      "123": "1X Speed (50Hz) (Full Frame) (Low Light) (V2)",
+      "124": "2X Slo-Mo (Full Frame) (V2)",
+      "125": "2X Slo-Mo (50Hz) (Full Frame) (V2)",
+      "126": "1X Speed (4K) (Low Light) (V2)",
+      "127": "1X Speed (4K) (50Hz) (Low Light) (V2)",
+      "128": "1X Speed (2.7K) (Low Light) (V2)",
+      "129": "1X Speed (2.7K) (50Hz) (Low Light) (V2)",
+      "130": "2X Slo-Mo (2.7K) (V2)",
+      "131": "2X Slo-Mo (2.7K) (50Hz) (V2)",
+      "132": "2X Slo-Mo (Long. Batt.) (V2) (Vertical)",
+      "133": "2X Slo-Mo (50Hz) (Long. Batt.) (V2) (Vertical)",
+      "134": "1X Speed (Long. Batt.) (Low Light) (V2) (Vertical)",
+      "135": "1X Speed (50Hz) (Long. Batt.) (Low Light) (V2) (Vertical)"
+    }
+  },
+  "177": {
+    "name": "Enable Night Photo",
+    "options": {
+      "0": "Off",
+      "1": "On"
+    }
+  },
+  "178": {
+    "name": "Wireless Band",
+    "options": {
+      "0": "2.4GHz",
+      "1": "5GHz"
+    }
+  },
+  "179": {
+    "name": "Star Trails Length",
+    "options": {
+      "1": "Short",
+      "2": "Long",
+      "3": "Max"
+    }
+  },
+  "180": {
+    "name": "System Video Mode",
+    "options": {
+      "0": "Highest Quality",
+      "101": "Extended Battery",
+      "102": "Longest Battery",
+      "111": "Standard Quality",
+      "112": "Basic Quality"
+    }
+  },
+  "182": {
+    "name": "Video Bit Rate",
+    "options": {
+      "0": "Standard",
+      "1": "High"
+    }
+  },
+  "183": {
+    "name": "Bit Depth",
+    "options": {
+      "0": "8-Bit",
+      "2": "10-Bit"
+    }
+  },
+  "184": {
+    "name": "Profiles",
+    "options": {
+      "0": "Standard",
+      "1": "HDR",
+      "2": "Log",
+      "101": "HLG HDR"
+    }
+  },
+  "186": {
+    "name": "Video Easy Mode",
+    "options": {
+      "0": "Highest Quality",
+      "1": "Standard Quality",
+      "2": "Basic Quality",
+      "3": "Standard Video",
+      "4": "HDR Video"
+    }
+  },
+  "187": {
+    "name": "Lapse Mode",
+    "options": {
+      "0": "TimeWarp",
+      "1": "Star Trails",
+      "2": "Light Painting",
+      "3": "Vehicle Lights",
+      "4": "Max TimeWarp",
+      "5": "Max Star Trails",
+      "6": "Max Light Painting",
+      "7": "Max Vehicle Lights",
+      "8": "Time Lapse Video",
+      "9": "Night Lapse Video"
+    }
+  },
+  "189": {
+    "name": "Max Lens Mod",
+    "options": {
+      "0": "None",
+      "1": "Max Lens 1.0",
+      "2": "Max Lens 2.0",
+      "3": "Max Lens 2.5",
+      "4": "Macro",
+      "5": "Anamorphic",
+      "6": "ND 4",
+      "7": "ND 8",
+      "8": "ND 16",
+      "9": "ND 32",
+      "10": "Standard Lens",
+      "100": "Auto Detect"
+    }
+  },
+  "190": {
+    "name": "Max Lens Mod Enable",
+    "options": {
+      "0": "Off",
+      "1": "On"
+    }
+  },
+  "191": {
+    "name": "Easy Night Photo",
+    "options": {
+      "0": "Super Photo",
+      "1": "Night Photo",
+      "2": "Burst"
+    }
+  },
+  "192": {
+    "name": "Multi Shot Aspect Ratio",
+    "options": {
+      "0": "4:3",
+      "1": "16:9",
+      "3": "8:7",
+      "4": "9:16"
+    }
+  },
+  "193": {
+    "name": "Framing",
+    "options": {
+      "0": "Widescreen",
+      "1": "Vertical",
+      "2": "Full Frame",
+      "100": "Traditional 4:3 v2",
+      "101": "Widescreen 16:9 v2",
+      "103": "Full Frame 8:7 v2",
+      "104": "Vertical 9:16 v2",
+      "105": "Ultra Widescreen 21:9 v2",
+      "106": "Full Frame 1:1 v2"
+    }
+  },
+  "216": {
+    "name": "Camera Volume",
+    "options": {
+      "70": "Low",
+      "85": "Medium",
+      "100": "High"
+    }
+  },
+  "219": {
+    "name": "Setup Screen Saver",
+    "options": {
+      "1": "1 Min",
+      "2": "2 Min",
+      "3": "3 Min",
+      "4": "5 Min"
+    }
+  },
+  "223": {
+    "name": "Setup Language",
+    "options": {
+      "0": "English - US",
+      "1": "English - UK",
+      "2": "English - AUS",
+      "3": "German",
+      "4": "French",
+      "5": "Italian",
+      "6": "Spanish",
+      "7": "Spanish - NA",
+      "8": "Chinese",
+      "9": "Japanese",
+      "10": "Korean",
+      "11": "Portuguese",
+      "12": "Russian",
+      "13": "English - IND",
+      "14": "Swedish"
+    }
+  },
+  "227": {
+    "name": "Photo Mode",
+    "options": {
+      "0": "SuperPhoto",
+      "1": "Night Photo",
+      "2": "Burst"
+    }
+  },
+  "232": {
+    "name": "Video Framing",
+    "options": {
+      "0": "4:3",
+      "1": "16:9",
+      "3": "8:7",
+      "4": "9:16",
+      "5": "21:9",
+      "6": "1:1"
+    }
+  },
+  "233": {
+    "name": "Multi Shot Framing",
+    "options": {
+      "0": "4:3",
+      "1": "16:9",
+      "3": "8:7",
+      "4": "9:16"
+    }
+  },
+  "234": {
+    "name": "Frame Rate",
+    "options": {
+      "0": "240.0",
+      "1": "120.0",
+      "2": "100.0",
+      "5": "60.0",
+      "6": "50.0",
+      "8": "30.0",
+      "9": "25.0",
+      "10": "24.0",
+      "13": "200.0",
+      "15": "400.0",
+      "16": "360.0",
+      "17": "300.0"
+    }
+  }
+}
