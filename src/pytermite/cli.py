@@ -757,60 +757,6 @@ async def _connect_to_gopros() -> None:
         )
 
 
-async def _fetch_all_settings(log: Any) -> tuple[list[GoProResp], list[str]]:
-    """
-    Fetch the camera state and identifier of all connected GoPros.
-
-    Parameters
-    ----------
-    log : Any
-        Bound logger used to report missing responses.
-
-    Returns
-    -------
-    tuple[list[GoProResp], list[str]]
-        Camera state responses and the identifiers of the cameras, in the same
-        order. The responses list is empty if no response was received.
-    """
-    tasks = [gp.http_command.get_camera_state() for gp in CONNECTED_GOPROS]
-    friendly_name = [camera.identifier for camera in CONNECTED_GOPROS]
-    try:
-        result = await asyncio.gather(*tasks)
-    except TypeError:
-        log.warning("No responses received from GoPro cameras.")
-        result = []
-
-    return result, friendly_name
-
-
-@cli.command()
-def list_settings() -> None:
-    """List current settings and environment variables."""
-    log = logger.bind(command="list_settings")
-    log.debug("Listing current settings and environment variables")
-
-    responses, friendly_name = asyncio.run(_fetch_all_settings(log))
-
-    for fn, resp in zip(friendly_name, responses, strict=True):
-        print(f"GoPro: {fn}")
-
-        # convert GoProResp data into a list of [Setting, Value] pairs
-        if resp.data:
-            # only settings are shown (otherwise: show all or StatusId.)
-            state_data = {
-                k: v for k, v in resp.data.items() if str(k).startswith("SettingId.")
-            }
-        else:
-            state_data = {}
-
-        table_data = [
-            [str(key).split(".")[-1], str(val)] for key, val in state_data.items()
-        ]
-
-        # Formats cleanly in terminal grid layout
-        print(tabulate(table_data, headers=["Setting", "Value"], tablefmt="fancy_grid"))
-
-
 @cli.command()
 def list_connected() -> None:
     """List connected GoPros."""
@@ -1156,6 +1102,106 @@ def _run_preview(
     log = logger.bind(command="preview-stream")
     _ = PreviewStream(serials, stop_event, log)
 
+
+@cli.command()
+@click.argument('id', type=str, required=False)
+@click.option('--export', 'export_path', help='Export settings to a path.')
+@click.option('--import', 'import_path', help='Import settings from a path.')
+def settings(id: str | None, export_path: str | None, import_path: str | None):
+    log = logger.bind(command="settings")
+
+    if not id:
+        log.warning("No identifier provided. Usage: settings <ID>")
+        return
+
+    global CONNECTED_GOPROS
+    connection = next((con for con in CONNECTED_GOPROS if con._identifier == id or con._name == id), None)
+    if connection is None:
+        log.warning(f"{id} is not connected")
+        return
+    if export_path:
+        request_path = f"gopro/camera/state"
+        response = make_gopro_request(connection, request_path)
+        if response is not None and response.status_code == 200:
+            response_data = response.json()["settings"]
+
+            # settingID list
+            with open("OpenGoPro_Settings.json", "r") as f:
+                settings_map = json.load(f)
+
+            response_data = {k: v for k, v in response_data.items() if k in settings_map}
+            with open(export_path, 'w') as f:
+                json.dump(response_data, f, indent=4)
+            log.info(f"Exported settings for {id} to {export_path}")
+        else:
+            log.warning(f"Settings export for {id} failed")
+    elif import_path:
+        with open(import_path, 'r') as f:
+            settings_data = json.load(f)
+        for setting, value in settings_data.items():
+            sid, oid = parse_setting(str(setting), str(value), mode="id")
+            if sid is None or oid is None:
+                log.warning(f"Could not parse setting {setting} with value {value}")
+                continue
+            request_path = f"gopro/camera/setting?option={oid}&setting={sid}"
+            response = make_gopro_request(connection, request_path)
+            setting_name, option_name = parse_setting(str(setting), str(value), mode="name")
+            if response is not None and response.status_code == 200:
+                log.info(f"Changed {setting_name} for {id} to {option_name}")
+            else:
+                log.warning(f"{setting_name} for {id} could not be changed to {option_name}")
+    else:
+        log.warning("No action specified. Use --export or --import.")
+
+@cli.command()
+@click.argument('id', type=str, required=False)
+@click.option('--export', 'export_path', help='Export settings to a path.')
+@click.option('--import', 'import_path', help='Import settings from a path.')
+def settings(id: str | None, export_path: str | None, import_path: str | None):
+    log = logger.bind(command="settings")
+
+    if not id:
+        log.warning("No identifier provided. Usage: settings <ID>")
+        return
+
+    global CONNECTED_GOPROS
+    connection = next((con for con in CONNECTED_GOPROS if con._identifier == id or con._name == id), None)
+    if connection is None:
+        log.warning(f"{id} is not connected")
+        return
+    if export_path:
+        request_path = f"gopro/camera/state"
+        response = make_gopro_request(connection, request_path)
+        if response is not None and response.status_code == 200:
+            response_data = response.json()["settings"]
+
+            # settingID list
+            with open("OpenGoPro_Settings.json", "r") as f:
+                settings_map = json.load(f)
+
+            response_data = {k: v for k, v in response_data.items() if k in settings_map}
+            with open(export_path, 'w') as f:
+                json.dump(response_data, f, indent=4)
+            log.info(f"Exported settings for {id} to {export_path}")
+        else:
+            log.warning(f"Settings export for {id} failed")
+    elif import_path:
+        with open(import_path, 'r') as f:
+            settings_data = json.load(f)
+        for setting, value in settings_data.items():
+            sid, oid = parse_setting(str(setting), str(value), mode="id")
+            if sid is None or oid is None:
+                log.warning(f"Could not parse setting {setting} with value {value}")
+                continue
+            request_path = f"gopro/camera/setting?option={oid}&setting={sid}"
+            response = make_gopro_request(connection, request_path)
+            setting_name, option_name = parse_setting(str(setting), str(value), mode="name")
+            if response is not None and response.status_code == 200:
+                log.info(f"Changed {setting_name} for {id} to {option_name}")
+            else:
+                log.warning(f"{setting_name} for {id} could not be changed to {option_name}")
+    else:
+        log.warning("No action specified. Use --export or --import.")
 
 @cli.command()
 @click.option("--settings", is_flag=True, show_default=False)
