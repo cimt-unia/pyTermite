@@ -121,9 +121,13 @@ class PreviewStream:
         """
         for connection in self.connection:
             response = make_gopro_request(
-                connection,
-                f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}",
+                connection, f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}"
             )
+            if response.status_code == 409:
+                _ = make_gopro_request(connection, "gopro/camera/stream/stop")
+                response = make_gopro_request(
+                    connection, f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}"
+                )
             if response is None or not response.ok:
                 self.logger.warning(
                     f"Failed to start stream for {connection.ip_address}: {response}"
@@ -134,6 +138,7 @@ class PreviewStream:
         for index, (ip, port) in enumerate(self.ips.items()):
             row, col = divmod(index, self.canvas_size)
 
+            self.logger.debug(f"Starting new Receiver for port {port}")
             receiver = UDPReceiver(
                 self.canvas, row, col, ip, port, self.canvas_size, total_canvas_width
             )
