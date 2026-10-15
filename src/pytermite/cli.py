@@ -828,7 +828,7 @@ def record(
     global ltc_process
     try:
         if not no_timecode and ltc_process is None and action == "start":
-            ctx.invoke(gen_timecode, action=action)
+            ctx.invoke(generate_timecode, action=action)
         elif no_timecode and ltc_process is not None:
             log.warning("Provided no-timecode flag, but timecode already running")
 
