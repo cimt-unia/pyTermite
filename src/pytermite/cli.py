@@ -31,7 +31,6 @@ import sounddevice as sd
 import structlog
 from click.shell_completion import get_completion_class
 from click_help_colors import HelpColorsGroup
-from open_gopro import GoProResp
 from open_gopro.models.constants import StatusId
 from tabulate import tabulate
 
@@ -1071,9 +1070,9 @@ def _run_preview(
 
 
 @cli.command()
-@click.argument('id', type=str, required=False)
-@click.option('--export', 'export_path', help='Export settings to a path.')
-@click.option('--import', 'import_path', help='Import settings from a path.')
+@click.argument("id", type=str, required=False)
+@click.option("--export", "export_path", help="Export settings to a path.")
+@click.option("--import", "import_path", help="Import settings from a path.")
 def settings(id: str | None, export_path: str | None, import_path: str | None):
     log = logger.bind(command="settings")
 
@@ -1082,28 +1081,33 @@ def settings(id: str | None, export_path: str | None, import_path: str | None):
         return
 
     global CONNECTED_GOPROS
-    connection = next((con for con in CONNECTED_GOPROS if con._identifier == id or con._name == id), None)
+    connection = next(
+        (con for con in CONNECTED_GOPROS if con._identifier == id or con._name == id),
+        None,
+    )
     if connection is None:
         log.warning(f"{id} is not connected")
         return
     if export_path:
-        request_path = f"gopro/camera/state"
+        request_path = "gopro/camera/state"
         response = make_gopro_request(connection, request_path)
         if response is not None and response.status_code == 200:
             response_data = response.json()["settings"]
 
             # settingID list
-            with open("OpenGoPro_Settings.json", "r") as f:
+            with Path("OpenGoPro_Settings.json").open("r") as f:
                 settings_map = json.load(f)
 
-            response_data = {k: v for k, v in response_data.items() if k in settings_map}
-            with open(export_path, 'w') as f:
+            response_data = {
+                k: v for k, v in response_data.items() if k in settings_map
+            }
+            with Path(export_path).open("w") as f:
                 json.dump(response_data, f, indent=4)
             log.info(f"Exported settings for {id} to {export_path}")
         else:
             log.warning(f"Settings export for {id} failed")
     elif import_path:
-        with open(import_path, 'r') as f:
+        with Path(import_path).open("r") as f:
             settings_data = json.load(f)
         for setting, value in settings_data.items():
             sid, oid = parse_setting(str(setting), str(value), mode="id")
@@ -1112,18 +1116,23 @@ def settings(id: str | None, export_path: str | None, import_path: str | None):
                 continue
             request_path = f"gopro/camera/setting?option={oid}&setting={sid}"
             response = make_gopro_request(connection, request_path)
-            setting_name, option_name = parse_setting(str(setting), str(value), mode="name")
+            setting_name, option_name = parse_setting(
+                str(setting), str(value), mode="name"
+            )
             if response is not None and response.status_code == 200:
                 log.info(f"Changed {setting_name} for {id} to {option_name}")
             else:
-                log.warning(f"{setting_name} for {id} could not be changed to {option_name}")
+                log.warning(
+                    f"{setting_name} for {id} could not be changed to {option_name}"
+                )
     else:
         log.warning("No action specified. Use --export or --import.")
+
 
 @cli.command()
-@click.argument('id', type=str, required=False)
-@click.option('--export', 'export_path', help='Export settings to a path.')
-@click.option('--import', 'import_path', help='Import settings from a path.')
+@click.argument("id", type=str, required=False)
+@click.option("--export", "export_path", help="Export settings to a path.")
+@click.option("--import", "import_path", help="Import settings from a path.")
 def settings(id: str | None, export_path: str | None, import_path: str | None):
     log = logger.bind(command="settings")
 
@@ -1132,28 +1141,33 @@ def settings(id: str | None, export_path: str | None, import_path: str | None):
         return
 
     global CONNECTED_GOPROS
-    connection = next((con for con in CONNECTED_GOPROS if con._identifier == id or con._name == id), None)
+    connection = next(
+        (con for con in CONNECTED_GOPROS if con._identifier == id or con._name == id),
+        None,
+    )
     if connection is None:
         log.warning(f"{id} is not connected")
         return
     if export_path:
-        request_path = f"gopro/camera/state"
+        request_path = "gopro/camera/state"
         response = make_gopro_request(connection, request_path)
         if response is not None and response.status_code == 200:
             response_data = response.json()["settings"]
 
             # settingID list
-            with open("OpenGoPro_Settings.json", "r") as f:
+            with Path("OpenGoPro_Settings.json").open("r") as f:
                 settings_map = json.load(f)
 
-            response_data = {k: v for k, v in response_data.items() if k in settings_map}
-            with open(export_path, 'w') as f:
+            response_data = {
+                k: v for k, v in response_data.items() if k in settings_map
+            }
+            with Path(export_path).open("w") as f:
                 json.dump(response_data, f, indent=4)
             log.info(f"Exported settings for {id} to {export_path}")
         else:
             log.warning(f"Settings export for {id} failed")
     elif import_path:
-        with open(import_path, 'r') as f:
+        with Path(import_path).open("r") as f:
             settings_data = json.load(f)
         for setting, value in settings_data.items():
             sid, oid = parse_setting(str(setting), str(value), mode="id")
@@ -1162,13 +1176,18 @@ def settings(id: str | None, export_path: str | None, import_path: str | None):
                 continue
             request_path = f"gopro/camera/setting?option={oid}&setting={sid}"
             response = make_gopro_request(connection, request_path)
-            setting_name, option_name = parse_setting(str(setting), str(value), mode="name")
+            setting_name, option_name = parse_setting(
+                str(setting), str(value), mode="name"
+            )
             if response is not None and response.status_code == 200:
                 log.info(f"Changed {setting_name} for {id} to {option_name}")
             else:
-                log.warning(f"{setting_name} for {id} could not be changed to {option_name}")
+                log.warning(
+                    f"{setting_name} for {id} could not be changed to {option_name}"
+                )
     else:
         log.warning("No action specified. Use --export or --import.")
+
 
 @cli.command()
 @click.option("--settings", is_flag=True, show_default=False)
