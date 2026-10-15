@@ -717,9 +717,9 @@ async def scan_for_gopros(
     finally:
         # Clean up
         INTERRUPT.set()
-        for task in tasks:
-            if not task.done():
-                task.cancel()
+        for left_task in tasks:
+            if not left_task.done():
+                left_task.cancel()
         for result in await asyncio.gather(*tasks, return_exceptions=True):
             if isinstance(result, BaseException) and not isinstance(
                 result, asyncio.CancelledError
