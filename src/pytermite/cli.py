@@ -15,13 +15,12 @@ multiple GoPro devices. Includes an interactive REPL for repeated commands.
 import asyncio
 import atexit
 import enum
+import json
 import logging
 import multiprocessing
 import os
 import shlex
 import time
-import json
-import sounddevice as sd
 from multiprocessing import Event, Process
 from multiprocessing.synchronize import Event as SyncEvent
 from pathlib import Path
@@ -56,7 +55,6 @@ from pytermite.connection import (
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
 from pytermite.lineartimecode import (
     LTCGenerator,
-    decode_timecode_batch,
 )
 from pytermite.preview_stream import PreviewStream
 from pytermite.utils import (
@@ -851,7 +849,8 @@ def disconnect() -> None:
         _run_repl(click.get_current_context())
 
 
-ltc_process: tuple[Process, SyncEvent]|None = None
+ltc_process: tuple[Process, SyncEvent] | None = None
+
 
 @cli.command()
 @click.option(
@@ -864,9 +863,7 @@ ltc_process: tuple[Process, SyncEvent]|None = None
 @click.argument("action", type=click.Choice(["start", "stop"]))
 @click.pass_context
 def record(
-    ctx: click.Context, 
-    action: str,
-    no_timecode: bool
+    ctx: click.Context, action: str, no_timecode: bool
 ) -> None:  # numpydoc ignore=GL03
     """
     Start or stop recording on all currently connected GoPro cameras.
@@ -877,7 +874,7 @@ def record(
     ----------
     action : {"start", "stop"}
         Whether to start or stop recording.
-    no_timecode : 
+    no_timecode :
         Flag to suppress timecode activation
     """
     log = logger.bind(command="record")
@@ -886,8 +883,8 @@ def record(
     try:
         if not no_timecode and ltc_process is None and action == "start":
             ctx.invoke(gen_timecode, action=action)
-        elif no_timecode and not ltc_process is None:
-            log.warn("Provided no-timecode flag, but timecode already running")
+        elif no_timecode and ltc_process is not None:
+            log.warning("Provided no-timecode flag, but timecode already running")
 
         asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
         if action == "stop":
@@ -935,9 +932,9 @@ def generate_timecode(  # numpydoc ignore=GL03
             _check_fps(fps)
             if device is None:
                 device = sd.query_devices(kind="output")["index"]
-            if not ltc_process is None:
+            if ltc_process is not None:
                 log.info("Timecode already running")
-    
+
             ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
             stop_event = Event()
             ltc_process_tmp = Process(
@@ -956,26 +953,30 @@ def generate_timecode(  # numpydoc ignore=GL03
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+
 def _check_fps(fps: int):
     log = logger.bind(command="gen_timecode")
     global CONNECTED_GOPROS
-    with open("OpenGoPro_Settings.json", "r") as f:
+    with Path("OpenGoPro_Settings.json").open() as f:
         settings_map = json.load(f)
     invalid_cameras = []
     for connection in CONNECTED_GOPROS:
-        request_path = f"gopro/camera/state"
+        request_path = "gopro/camera/state"
         response = make_gopro_request(connection, request_path)
         if response is not None and response.status_code == 200:
-            camera_fps = int((settings_map["3"]["options"][str(response.json()["settings"]["3"])]).split(".")[0])
+            camera_fps = int(
+                (
+                    settings_map["3"]["options"][str(response.json()["settings"]["3"])]
+                ).split(".")[0]
+            )
             if camera_fps != fps:
                 invalid_cameras.append((connection._identifier, camera_fps))
 
     if len(invalid_cameras) > 0:
-        log.warn("Invalid Fps settings found")
-        log.warn(f"Timecode Setting: {fps}fps")
+        log.warning("Invalid Fps settings found")
+        log.warning(f"Timecode Setting: {fps}fps")
         for identifier, cam_fps in invalid_cameras:
-            log.warn(f"Camera {identifier}: {cam_fps}fps")
-
+            log.warning(f"Camera {identifier}: {cam_fps}fps")
 
 
 @cli.command()
