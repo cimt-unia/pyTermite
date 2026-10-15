@@ -849,13 +849,23 @@ def disconnect() -> None:
         _run_repl(click.get_current_context())
 
 
-ltc_processes: list[tuple[Process, SyncEvent]] = []
-last_timecode_flag = False
-
+ltc_process: tuple[Process, SyncEvent]|None = None
 
 @cli.command()
+@click.option(
+    "--no-timecode",
+    "-nt",
+    is_flag=True,
+    show_default=False,
+    help="Deactivate the use of linear timecode",
+)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def record(action: str) -> None:  # numpydoc ignore=GL03
+@click.pass_context
+def record(
+    ctx: click.Context, 
+    action: str,
+    no_timecode: bool
+) -> None:  # numpydoc ignore=GL03
     """
     Start or stop recording on all currently connected GoPro cameras.
 
@@ -865,10 +875,18 @@ def record(action: str) -> None:  # numpydoc ignore=GL03
     ----------
     action : {"start", "stop"}
         Whether to start or stop recording.
+    no_timecode : 
+        Flag to suppress timecode activation
     """
     log = logger.bind(command="record")
     global CONNECTED_GOPROS
+    global ltc_process
     try:
+        if not no_timecode and ltc_process is None and action == "start":
+            ctx.invoke(gen_timecode, action=action)
+        elif no_timecode and not ltc_process is None:
+            log.warn("Provided no-timecode flag, but timecode already running")
+
         asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
         if action == "stop":
             fetch_process = Process(
@@ -909,20 +927,24 @@ def generate_timecode(  # numpydoc ignore=GL03
         Sample rate for the output stream.
     """
     log = logger.bind(command="gen_timecode")
-    global ltc_processes
+    global ltc_process
     try:
         if device is None:
             device = sd.query_devices(kind="output")["index"]
-        if action == "start" and device is not None:
+        if not ltc_process is None and action == "start":
+            log.info("Timecode already running")
+        elif action == "start" and device is not None:
             ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
             stop_event = Event()
-            ltc_process = Process(target=_run_generator, args=(ltc_config, stop_event))
-            ltc_process.start()
-            ltc_processes.append((ltc_process, stop_event))
+            ltc_process_tmp = Process(
+                target=_run_generator, args=(ltc_config, stop_event)
+            )
+            ltc_process_tmp.start()
+            ltc_process = (ltc_process_tmp, stop_event)
             time.sleep(3)
         elif action == "stop":
-            for p in ltc_processes:
-                p[1].set()
+            ltc_process[1].set()
+            ltc_process = None
         else:
             log.warning("No valid options for timecode generator provided!")
     except RuntimeError as e:
@@ -957,56 +979,6 @@ def fetchdata(save_path: str | None) -> None:  # numpydoc ignore=GL03
             daemon=False,
         )
         fetch_process.start()
-    except RuntimeError as e:
-        log.error(str(e))
-    if KEEP_OPEN:
-        _run_repl(click.get_current_context())
-
-
-decode_processes: list[Process] = []
-
-
-@cli.command()
-@click.option("--input_path", default=None, type=click.Path())
-@click.option("--fps", default=50, type=int)
-@click.argument("action", type=click.Choice(["start", "stop"]))
-def decode_path(  # numpydoc ignore=GL03
-    action: str, input_path: str | None, fps: int
-) -> None:
-    """
-    Start or stop timecode decoding as a background process.
-
-    \f
-
-    Parameters
-    ----------
-    action : {"start", "stop"}
-        Either "start" to launch a decode process or "stop" to terminate all
-        running decode processes.
-    input_path : str, optional
-        Path to the input file.
-    fps : int, default: 50
-        Frame rate used for decoding.
-
-    Raises
-    ------
-    RuntimeError
-        If starting or stopping the process fails.
-    """
-    global decode_processes
-    log = logger.bind(command="decode_path")
-    try:
-        if action == "start":
-            p = Process(
-                target=decode_timecode_batch,
-                args=([(input_path, fps)], 1),
-                daemon=False,
-            )
-            decode_processes.append(p)
-            p.start()
-        elif action == "stop":
-            for p in decode_processes:
-                p.terminate()
     except RuntimeError as e:
         log.error(str(e))
     if KEEP_OPEN:
