@@ -28,6 +28,7 @@ from typing import Any
 import click
 import sounddevice as sd
 import structlog
+from click.shell_completion import get_completion_class
 from click_help_colors import HelpColorsGroup
 from open_gopro import GoProResp
 from open_gopro.models.constants import StatusId
@@ -167,6 +168,168 @@ def _check_line(line: str, ctx: click.Context) -> str | None:
     return None
 
 
+def _find_option(params: list[click.Parameter], token: str) -> click.Option | None:
+    """
+    Find the option matching a command line token.
+
+    Parameters
+    ----------
+    params : list[click.Parameter]
+        Parameters of the command to search.
+    token : str
+        Command line token, e.g. ``--serials``.
+
+    Returns
+    -------
+    click.Option | None
+        Matching option or None if no option uses the token.
+    """
+    for param in params:
+        if isinstance(param, click.Option) and (
+            token in param.opts or token in param.secondary_opts
+        ):
+            return param
+    return None
+
+
+def _get_completion_candidates(group: click.Group, line: str, text: str) -> list[str]:
+    """
+    Compute tab completion candidates for the REPL.
+
+    Parameters
+    ----------
+    group : click.Group
+        Root command group whose subcommands are completed.
+    line : str
+        Input line up to the cursor.
+    text : str
+        Partial word under the cursor (suffix of ``line``).
+
+    Returns
+    -------
+    list[str]
+        Sorted candidates starting with ``text``.
+    """
+    completed = line[: len(line) - len(text)].split()
+
+    if not completed:
+        names = [*group.commands, "help", "exit", "quit"]
+        return sorted(name for name in names if name.startswith(text))
+
+    command = group.commands.get(completed[0])
+    if command is None:
+        return []
+    params = command.params
+
+    # The previous token is an option expecting a value: complete its choices.
+    if len(completed) > 1:
+        option = _find_option(params, completed[-1])
+        if option is not None and not option.is_flag:
+            return _choice_matches(option.type, text)
+
+    if text.startswith("-"):
+        options = [
+            opt
+            for param in params
+            if isinstance(param, click.Option)
+            for opt in (*param.opts, *param.secondary_opts)
+        ]
+        return sorted(opt for opt in options if opt.startswith(text))
+
+    # Determine which positional argument the cursor is currently filling.
+    positional_index = 0
+    i = 1
+    while i < len(completed):
+        token = completed[i]
+        if token.startswith("-"):
+            option = _find_option(params, token)
+            if option is not None and not option.is_flag:
+                i += 1  # skip the option's value
+        else:
+            positional_index += 1
+        i += 1
+
+    arguments = [p for p in params if isinstance(p, click.Argument)]
+    if positional_index < len(arguments):
+        return _choice_matches(arguments[positional_index].type, text)
+    return []
+
+
+def _choice_matches(param_type: click.ParamType, text: str) -> list[str]:
+    """
+    Return the choices of a ``click.Choice`` type that start with ``text``.
+
+    Parameters
+    ----------
+    param_type : click.ParamType
+        Type of the parameter being completed.
+    text : str
+        Partial value typed so far.
+
+    Returns
+    -------
+    list[str]
+        Matching choices, or an empty list if the type is not a ``click.Choice``.
+    """
+    if not isinstance(param_type, click.Choice):
+        return []
+    return sorted(str(c) for c in param_type.choices if str(c).startswith(text))
+
+
+def _setup_completion(ctx: click.Context) -> None:
+    """
+    Enable tab completion of commands, options and choices in the REPL.
+
+    Silently ignore failures, as readline is optional.
+
+    Parameters
+    ----------
+    ctx : click.Context
+        Click context whose root command provides the completion candidates.
+    """
+    try:
+        import readline  # optional: enables tab completion
+    except ImportError:
+        logger.warning(
+            "Failed to import readline; tab completion will not be available"
+        )
+        return
+
+    group = ctx.find_root().command
+    if not isinstance(group, click.Group):
+        return
+    matches: list[str] = []
+
+    def _completer(text: str, state: int) -> str | None:
+        """
+        Compute tab completion candidates for the REPL.
+
+        Parameters
+        ----------
+        text : str
+            Partial word under the cursor.
+        state : int
+            Index of the candidate to return.
+
+        Returns
+        -------
+        str | None
+            The candidate at the given index, or None if there are no more candidates.
+        """
+        nonlocal matches
+        if state == 0:
+            line = readline.get_line_buffer()[: readline.get_endidx()]
+            matches = _get_completion_candidates(group, line, text)
+        return matches[state] if state < len(matches) else None
+
+    readline.set_completer_delims(" \t\n")
+    readline.set_completer(_completer)
+    if "libedit" in (readline.__doc__ or ""):  # macOS libedit
+        readline.parse_and_bind("bind ^I rl_complete")
+    else:
+        readline.parse_and_bind("tab: complete")
+
+
 def _run_repl(ctx: click.Context) -> None:
     """
     Run the interactive REPL.
@@ -183,6 +346,7 @@ def _run_repl(ctx: click.Context) -> None:
 
     # Try to initialise command history support.
     _setup_history()
+    _setup_completion(ctx)
 
     prompt = "pytermite> "
 
@@ -1047,6 +1211,29 @@ def get_camera_state(identifiers: str | None, settings: bool, status: bool) -> N
         log.error(str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
+
+
+@cli.command()
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
+def completion(shell: str) -> None:  # numpydoc ignore=GL03
+    """
+    Print the shell completion script for SHELL.
+
+    Enable completion for the current shell session with
+    ``eval "$(pytermite completion bash)"`` (use ``zsh`` or ``fish`` accordingly).
+
+    /f
+
+    Parameters
+    ----------
+    shell : {"bash", "zsh", "fish"}
+        The shell to generate the completion script for.
+    """
+    comp_cls = get_completion_class(shell)
+    if comp_cls is None:  # pragma: no cover - guarded by click.Choice
+        raise click.BadParameter(f"Unsupported shell: {shell}")
+    script = comp_cls(cli, {}, "pytermite", "_PYTERMITE_COMPLETE").source()
+    click.echo(script, nl=False)
 
 
 def _run_generator(config: dict, stop_event: SyncEvent) -> None:

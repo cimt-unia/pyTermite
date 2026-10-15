@@ -76,6 +76,18 @@ pytermite record start
 pytermite disconnect
 ```
 
+### Shell completion
+
+Tab completion for commands, options and choices is available for `bash`, `zsh` and `fish`.
+Print the completion script for your shell and load it in the current session:
+
+```bash
+eval "$(pytermite completion bash)"   # or: pytermite completion zsh / fish
+```
+
+Add the same line to your shell's startup file (e.g. `~/.bashrc`) to make it permanent.
+The interactive shell (`pytermite` without a subcommand) also supports tab completion.
+
 ## Testing
 
 To use an individual config for testing `.env` files are recommended.

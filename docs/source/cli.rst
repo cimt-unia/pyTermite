@@ -8,7 +8,8 @@ in the ``pytermite.py`` module.
 
 Features
 --------
-- Interactive REPL for repeated commands
+- Interactive REPL for repeated commands with tab completion
+- Shell completion for bash, zsh and fish (``pytermite completion <shell>``)
 - Scan for connected GoPros via USB/mdns
 - Connect/disconnect and start/stop recording
 
