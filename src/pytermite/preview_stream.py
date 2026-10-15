@@ -121,12 +121,14 @@ class PreviewStream:
         """
         for connection in self.connection:
             response = make_gopro_request(
-                connection, f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}"
+                connection,
+                f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}",
             )
             if response.status_code == 409:
                 _ = make_gopro_request(connection, "gopro/camera/stream/stop")
                 response = make_gopro_request(
-                    connection, f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}"
+                    connection,
+                    f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}",
                 )
             if response is None or not response.ok:
                 self.logger.warning(
