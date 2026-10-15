@@ -20,6 +20,8 @@ import multiprocessing
 import os
 import shlex
 import time
+import json
+import sounddevice as sd
 from multiprocessing import Event, Process
 from multiprocessing.synchronize import Event as SyncEvent
 from pathlib import Path
@@ -929,11 +931,13 @@ def generate_timecode(  # numpydoc ignore=GL03
     log = logger.bind(command="gen_timecode")
     global ltc_process
     try:
-        if device is None:
-            device = sd.query_devices(kind="output")["index"]
-        if not ltc_process is None and action == "start":
-            log.info("Timecode already running")
-        elif action == "start" and device is not None:
+        if action == "start":
+            _check_fps(fps)
+            if device is None:
+                device = sd.query_devices(kind="output")["index"]
+            if not ltc_process is None:
+                log.info("Timecode already running")
+    
             ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
             stop_event = Event()
             ltc_process_tmp = Process(
@@ -951,6 +955,27 @@ def generate_timecode(  # numpydoc ignore=GL03
         log.error(str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
+
+def _check_fps(fps: int):
+    log = logger.bind(command="gen_timecode")
+    global CONNECTED_GOPROS
+    with open("OpenGoPro_Settings.json", "r") as f:
+        settings_map = json.load(f)
+    invalid_cameras = []
+    for connection in CONNECTED_GOPROS:
+        request_path = f"gopro/camera/state"
+        response = make_gopro_request(connection, request_path)
+        if response is not None and response.status_code == 200:
+            camera_fps = int((settings_map["3"]["options"][str(response.json()["settings"]["3"])]).split(".")[0])
+            if camera_fps != fps:
+                invalid_cameras.append((connection._identifier, camera_fps))
+
+    if len(invalid_cameras) > 0:
+        log.warn("Invalid Fps settings found")
+        log.warn(f"Timecode Setting: {fps}fps")
+        for identifier, cam_fps in invalid_cameras:
+            log.warn(f"Camera {identifier}: {cam_fps}fps")
+
 
 
 @cli.command()
