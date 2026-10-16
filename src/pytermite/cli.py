@@ -1075,7 +1075,7 @@ def _run_preview(
 @click.option("--import", "import_path", help="Import settings from a path.")
 def settings(
     camera_ref: str | None, export_path: str | None, import_path: str | None
-    ) -> None:
+) -> None:
     """
     Import or export settings for a specified connected GoPro camera.
 
@@ -1097,7 +1097,8 @@ def settings(
     global CONNECTED_GOPROS
     connection = next(
         (
-            con for con in CONNECTED_GOPROS
+            con
+            for con in CONNECTED_GOPROS
             if con._identifier == camera_ref or con._name == camera_ref
         ),
         None,
