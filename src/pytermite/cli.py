@@ -1017,11 +1017,13 @@ def decode_path(  # numpydoc ignore=GL03
 @click.argument("identifier", type=str)
 @click.argument("setting", type=str)
 @click.argument("option", type=str)
-def change_setting(identifier: str, setting: str, option: str) -> None:
+def change_setting(  # numpydoc ignore=GL03
+    identifier: str, setting: str, option: str
+) -> None:
     """
     Change a setting of a connected GoPro.
 
-    /f
+    \f
 
     Parameters
     ----------
@@ -1062,11 +1064,11 @@ def change_setting(identifier: str, setting: str, option: str) -> None:
 
 @cli.command()
 @click.argument("action", type=click.Choice(["start", "stop"]), default=None)
-def preview_stream(action: str) -> None:
+def preview_stream(action: str) -> None:  # numpydoc ignore=GL03
     """
     Start or stop the preview stream of the connected GoPros.
 
-    /f
+    \f
 
     Parameters
     ----------
@@ -1127,11 +1129,13 @@ def _run_preview(
 @click.option("--settings", is_flag=True, show_default=False)
 @click.option("--status", is_flag=True, show_default=False)
 @click.argument("identifiers", default=None, type=str)
-def get_camera_state(identifiers: str | None, settings: bool, status: bool) -> None:
+def get_camera_state(  # numpydoc ignore=GL03
+    identifiers: str | None, settings: bool, status: bool
+) -> None:
     """
     Show the settings and/or statuses of connected GoPros.
 
-    /f
+    \f
 
     Parameters
     ----------
@@ -1222,7 +1226,7 @@ def completion(shell: str) -> None:  # numpydoc ignore=GL03
     Enable completion for the current shell session with
     ``eval "$(pytermite completion bash)"`` (use ``zsh`` or ``fish`` accordingly).
 
-    /f
+    \f
 
     Parameters
     ----------
