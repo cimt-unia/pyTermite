@@ -1334,6 +1334,12 @@ def _exit_handler() -> None:
     log.debug("Exiting pyTermite CLI")
     log.info("Closing all connections")
     global CONNECTED_GOPROS
+    global ltc_processes
+    global PREVIEW_PROCESSES
+    for preview_pair in PREVIEW_PROCESSES:
+        preview_pair[1].set()
+    for ltc_pair in ltc_processes:
+        ltc_pair[1].set()
     asyncio.run(close_gopros(gopros=CONNECTED_GOPROS))
 
 
