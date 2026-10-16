@@ -1028,30 +1028,32 @@ def change_setting(  # numpydoc ignore=GL03
     global CONNECTED_GOPROS
     log = logger.bind(command="change_setting")
     try:
-        connection = next(
-            (
-                con
-                for con in CONNECTED_GOPROS
-                if con.identifier == identifier
-                or (isinstance(con, WiredConnection) and con.name == identifier)
-            ),
-            None,
-        )
+        connection = asyncio.run(find_connection(identifier))
         if connection is None:
             log.warning(f"{identifier} is not connected")
         else:
             sid, oid = parse_setting(setting, option)
+            sname, oname = parse_setting(setting, option, mode="name")
+            
             request_path = f"gopro/camera/setting?option={oid}&setting={sid}"
             response = make_gopro_request(connection, request_path)
             if response is not None and response.status_code == 200:
-                log.info(f"Changed {setting} for {identifier} to {option}")
+                log.info(f"Changed {sname} for {identifier} to {oname}")
             else:
-                log.warning(f"{setting} for {identifier} could not be changed")
+                log.warning(f"{sname} for {identifier} could not be changed")
     except RuntimeError as e:
         log.error("Failed to change setting", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
+async def find_connection(identifier:str):
+    global CONNECTED_GOPROS
+    for con in CONNECTED_GOPROS:
+        print(con.identifier, identifier)
+        if con.identifier == identifier \
+            or (isinstance(con, WiredConnection) and await con.name == identifier):
+                return con
+    return None
 
 @cli.command()
 @click.argument("action", type=click.Choice(["start", "stop"]), default=None)
@@ -1231,15 +1233,7 @@ def get_camera_state(  # numpydoc ignore=GL03
     identifiers_type = []
     try:
         for identifier in identifiers_list:
-            connection = next(
-                (
-                    con
-                    for con in CONNECTED_GOPROS
-                    if con.identifier == identifier
-                    or (isinstance(con, WiredConnection) and con.name == identifier)
-                ),
-                None,
-            )
+            connection = asyncio.run(find_connection(identifier))
             if connection is None:
                 log.warning(f"{identifier} is not connected")
             else:
