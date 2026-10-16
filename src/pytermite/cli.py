@@ -1070,23 +1070,40 @@ def _run_preview(
 
 
 @cli.command()
-@click.argument("id", type=str, required=False)
+@click.argument("camera_ref", type=str, required=False)
 @click.option("--export", "export_path", help="Export settings to a path.")
 @click.option("--import", "import_path", help="Import settings from a path.")
-def settings(id: str | None, export_path: str | None, import_path: str | None):
+def settings(
+    camera_ref: str | None, export_path: str | None, import_path: str | None
+    ) -> None:
+    """
+    Import or export settings for a specified connected GoPro camera.
+
+    Parameters
+    ----------
+    camera_ref : str or None
+        Identifier or name of the connected GoPro camera. If None, a warning is issued.
+    export_path : str or None
+        Path to export the camera settings to. If None, no export is performed.
+    import_path : str or None
+        Path to import camera settings from. If None, no import is performed.
+    """
     log = logger.bind(command="settings")
 
-    if not id:
-        log.warning("No identifier provided. Usage: settings <ID>")
+    if not camera_ref:
+        log.warning("No identifier provided. Usage: settings <camera_ref>")
         return
 
     global CONNECTED_GOPROS
     connection = next(
-        (con for con in CONNECTED_GOPROS if con._identifier == id or con._name == id),
+        (
+            con for con in CONNECTED_GOPROS
+            if con._identifier == camera_ref or con._name == camera_ref
+        ),
         None,
     )
     if connection is None:
-        log.warning(f"{id} is not connected")
+        log.warning(f"{camera_ref} is not connected")
         return
     if export_path:
         request_path = "gopro/camera/state"
@@ -1103,14 +1120,14 @@ def settings(id: str | None, export_path: str | None, import_path: str | None):
             }
             with Path(export_path).open("w") as f:
                 json.dump(response_data, f, indent=4)
-            log.info(f"Exported settings for {id} to {export_path}")
+            log.info(f"Exported settings for {camera_ref} to {export_path}")
         else:
-            log.warning(f"Settings export for {id} failed")
+            log.warning(f"Settings export for {camera_ref} failed")
     elif import_path:
         with Path(import_path).open("r") as f:
             settings_data = json.load(f)
         for setting, value in settings_data.items():
-            sid, oid = parse_setting(str(setting), str(value), mode="id")
+            sid, oid = parse_setting(str(setting), str(value), mode="camera_ref")
             if sid is None or oid is None:
                 log.warning(f"Could not parse setting {setting} with value {value}")
                 continue
@@ -1120,70 +1137,11 @@ def settings(id: str | None, export_path: str | None, import_path: str | None):
                 str(setting), str(value), mode="name"
             )
             if response is not None and response.status_code == 200:
-                log.info(f"Changed {setting_name} for {id} to {option_name}")
+                log.info(f"Changed {setting_name} for {camera_ref} to {option_name}")
             else:
                 log.warning(
-                    f"{setting_name} for {id} could not be changed to {option_name}"
-                )
-    else:
-        log.warning("No action specified. Use --export or --import.")
-
-
-@cli.command()
-@click.argument("id", type=str, required=False)
-@click.option("--export", "export_path", help="Export settings to a path.")
-@click.option("--import", "import_path", help="Import settings from a path.")
-def settings(id: str | None, export_path: str | None, import_path: str | None):
-    log = logger.bind(command="settings")
-
-    if not id:
-        log.warning("No identifier provided. Usage: settings <ID>")
-        return
-
-    global CONNECTED_GOPROS
-    connection = next(
-        (con for con in CONNECTED_GOPROS if con._identifier == id or con._name == id),
-        None,
-    )
-    if connection is None:
-        log.warning(f"{id} is not connected")
-        return
-    if export_path:
-        request_path = "gopro/camera/state"
-        response = make_gopro_request(connection, request_path)
-        if response is not None and response.status_code == 200:
-            response_data = response.json()["settings"]
-
-            # settingID list
-            with Path("OpenGoPro_Settings.json").open("r") as f:
-                settings_map = json.load(f)
-
-            response_data = {
-                k: v for k, v in response_data.items() if k in settings_map
-            }
-            with Path(export_path).open("w") as f:
-                json.dump(response_data, f, indent=4)
-            log.info(f"Exported settings for {id} to {export_path}")
-        else:
-            log.warning(f"Settings export for {id} failed")
-    elif import_path:
-        with Path(import_path).open("r") as f:
-            settings_data = json.load(f)
-        for setting, value in settings_data.items():
-            sid, oid = parse_setting(str(setting), str(value), mode="id")
-            if sid is None or oid is None:
-                log.warning(f"Could not parse setting {setting} with value {value}")
-                continue
-            request_path = f"gopro/camera/setting?option={oid}&setting={sid}"
-            response = make_gopro_request(connection, request_path)
-            setting_name, option_name = parse_setting(
-                str(setting), str(value), mode="name"
-            )
-            if response is not None and response.status_code == 200:
-                log.info(f"Changed {setting_name} for {id} to {option_name}")
-            else:
-                log.warning(
-                    f"{setting_name} for {id} could not be changed to {option_name}"
+                    f"{setting_name} for {camera_ref} "
+                    "could not be changed to {option_name}"
                 )
     else:
         log.warning("No action specified. Use --export or --import.")
