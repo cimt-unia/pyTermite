@@ -895,7 +895,7 @@ def record(
             )
             fetch_process.start()
     except RuntimeError as e:
-        log.error(str(e))
+        log.error("Failed to execute record action", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -904,19 +904,26 @@ def record(
 @click.option("--device", default=None, type=int)
 @click.option("--fps", default=50, type=int)
 @click.option("--sample_rate", default=48000, type=int)
-@click.argument("action", type=click.Choice(["start", "stop"]))
+@click.option(
+    "--duration",
+    default=None,
+    type=int,
+    help="Duration in seconds for the jamsync action.",
+)
+@click.argument("action", type=click.Choice(["start", "stop", "jamsync"]))
 def generate_timecode(  # numpydoc ignore=GL03
-    action: str, device: int | None, fps: int, sample_rate: int
+    action: str, device: int | None, fps: int, sample_rate: int, duration: int | None
 ) -> None:
     """
-    Start or stop timecode generation.
+    Start or stop timecode generation, or run a timed jamsync.
 
     \f
 
     Parameters
     ----------
-    action : {"start", "stop"}
-        Whether to start or stop generation.
+    action : {"start", "stop", "jamsync"}
+        Whether to start or stop generation, or run generation for a fixed
+        number of seconds (jamsync).
     device : int, optional
         Sounddevice id of the device used to output the generated timecode.
         Defaults to the current system default.
@@ -924,9 +931,16 @@ def generate_timecode(  # numpydoc ignore=GL03
         Timecode standard used for the available fps settings.
     sample_rate : int, default: 48000
         Sample rate for the output stream.
+    duration : int, optional
+        Number of seconds to run generation for when action is "jamsync".
     """
     log = logger.bind(command="gen_timecode")
     global ltc_process
+    if duration is not None and action != "jamsync":
+        log.warning(
+            "--duration is only used with the jamsync action, "
+            f"ignoring it for '{action}'."
+        )
     try:
         if action == "start":
             _check_fps(fps)
@@ -942,14 +956,34 @@ def generate_timecode(  # numpydoc ignore=GL03
             )
             ltc_process_tmp.start()
             ltc_process = (ltc_process_tmp, stop_event)
+            log.info(f"Started timecode generation on device {device} at {fps} fps")
             time.sleep(3)
+        elif action == "jamsync":
+            if duration is None or duration <= 0:
+                log.error("jamsync requires a positive --duration in seconds!")
+            else:
+                ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
+                stop_event = Event()
+                ltc_process = Process(
+                    target=_run_generator, args=(ltc_config, stop_event)
+                )
+                ltc_process.start()
+                log.info(
+                    f"Started jamsync timecode generation on device {device} "
+                    f"at {fps} fps for {duration} second(s)"
+                )
+                time.sleep(duration)
+                stop_event.set()
+                ltc_process.join()
+                log.info("Stopped jamsync timecode generation")
         elif action == "stop":
+            log.info("Stopping timecode generation")
             ltc_process[1].set()
             ltc_process = None
         else:
             log.warning("No valid options for timecode generator provided!")
-    except RuntimeError as e:
-        log.error(str(e))
+    except (RuntimeError, sd.PortAudioError) as e:
+        log.error("Failed to execute timecode generator action", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -1006,7 +1040,7 @@ def fetchdata(save_path: str | None) -> None:  # numpydoc ignore=GL03
         )
         fetch_process.start()
     except RuntimeError as e:
-        log.error(str(e))
+        log.error("Failed to start fetch process", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -1055,7 +1089,7 @@ def change_setting(  # numpydoc ignore=GL03
             else:
                 log.warning(f"{setting} for {identifier} could not be changed")
     except RuntimeError as e:
-        log.error(str(e))
+        log.error("Failed to change setting", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -1101,7 +1135,7 @@ def preview_stream(action: str) -> None:  # numpydoc ignore=GL03
                 "Preview could not be started: Invalid parameters/No GoPros available"
             )
     except RuntimeError as e:
-        log.error(str(e))
+        log.error("Failed to execute preview action", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
@@ -1210,7 +1244,7 @@ def get_camera_state(  # numpydoc ignore=GL03
             table_data = [table_statuses[key] for key in table_statuses]
             print(tabulate(table_data, headers=headers, tablefmt="fancy_grid"))
     except RuntimeError as e:
-        log.error(str(e))
+        log.error("Failed to get camera state", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
