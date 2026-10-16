@@ -14,3 +14,4 @@ pylsl
 tabulate
 pandas
 pillow
+screeninfo

@@ -39,6 +39,7 @@ dependencies = [
     "tabulate",
     "pandas",
     "pillow",
+    "screeninfo",
 ]
 
 [project.urls]
