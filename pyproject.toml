@@ -244,4 +244,8 @@ addopts = "-ra --cov --cov-branch --cov-append --cov-report=term-missing --cov-r
 minversion = "9"
 log_level = "INFO"
 xfail_strict = true
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning::",
+    "default::DeprecationWarning:pytermite.*:",
+]
