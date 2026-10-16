@@ -858,9 +858,10 @@ def record(
     type=int,
     help="Duration in seconds for the jamsync action.",
 )
+@click.option("--no_system_time", is_flag=True, show_default=False)
 @click.argument("action", type=click.Choice(["start", "stop", "jamsync"]))
 def generate_timecode(  # numpydoc ignore=GL03
-    action: str, device: int | None, fps: int, sample_rate: int, duration: int | None
+    action: str, device: int | None, fps: int, sample_rate: int, duration: int | None, no_system_time: bool
 ) -> None:
     """
     Start or stop timecode generation, or run a timed jamsync.
@@ -881,6 +882,8 @@ def generate_timecode(  # numpydoc ignore=GL03
         Sample rate for the output stream.
     duration : int, optional
         Number of seconds to run generation for when action is "jamsync".
+    no_system_time: bool
+        Flag to suppress use of system time as ltc start time 
     """
     log = logger.bind(command="generate_timecode")
     global ltc_process
@@ -897,7 +900,7 @@ def generate_timecode(  # numpydoc ignore=GL03
             if ltc_process is not None:
                 log.info("Timecode already running")
             else:
-                ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
+                ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device, "use_system_time": not no_system_time}
                 stop_event = Event()
                 ltc_process_tmp = Process(
                     target=_run_generator, args=(ltc_config, stop_event)
@@ -910,7 +913,7 @@ def generate_timecode(  # numpydoc ignore=GL03
             if duration is None or duration <= 0:
                 log.error("jamsync requires a positive --duration in seconds!")
             else:
-                ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
+                ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device, "use_system_time": not no_system_time}
                 stop_event = Event()
                 ltc_process_temp = Process(
                     target=_run_generator, args=(ltc_config, stop_event)

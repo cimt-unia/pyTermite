@@ -15,6 +15,7 @@ import multiprocessing
 import pathlib
 import queue
 import threading
+from datetime import datetime
 from multiprocessing.synchronize import Event as SyncEvent
 from typing import TYPE_CHECKING
 
@@ -77,10 +78,12 @@ class LTCGenerator:
         self.fps = config["fps"]
         self.double_frames = config["fps"] == 50
         self.device = config["device"]
+        self.use_system_time = config["use_system_time"]
         self.samples_per_frame = self.sample_rate // self.fps
         self.samples_per_bit = int(self.sample_rate / self.fps / 80)
-        self.total_samples = 0
+        self.frame_number = 0
         self.next_level_sign = -1
+        self.time_dict = {"hh": 1, "mm": 0, "ss": 0}
         self.frame_queue: queue.Queue = queue.Queue(maxsize=self.fps)
         self.info = StreamInfo(
             name="LtcTimecode",
@@ -183,12 +186,20 @@ class LTCGenerator:
         timecode : str
             The encoded timecode in the format "HH:MM:SS:FF".
         """
-        frame_number = self.total_samples // self.samples_per_frame
-        ff = frame_number % self.fps
-        ss = (frame_number // self.fps) % 60
-        mm = (frame_number // (self.fps * 60)) % 60
-        hh = (1 + frame_number // (self.fps * 3600)) % 24
-        self.total_samples += self.samples_per_frame
+        total_frames = (
+            (
+                self.time_dict["hh"] * 3600
+                + self.time_dict["mm"] * 60
+                + self.time_dict["ss"]
+            ) * self.fps
+            + self.frame_number
+        )
+        
+        ff = total_frames % self.fps
+        ss = (total_frames // self.fps) % 60
+        mm = (total_frames // (self.fps * 60)) % 60
+        hh = (total_frames // (self.fps * 3600)) % 24
+        self.frame_number += 1
 
         word = 0
         conversions = [0b1011111111111100 << 64]
@@ -240,6 +251,13 @@ class LTCGenerator:
         This function continuously generates LTC frames and puts them into a queue
         until stopped.
         """
+        if self.use_system_time:
+            now = datetime.now()
+            self.time_dict = {
+                "hh": now.hour,
+                "mm": now.minute,
+                "ss": now.second
+            }
         n = 2 if self.double_frames else 1
         while not self.stop_event.is_set():
             word, timecode = self.create_next_bitword()
