@@ -818,10 +818,12 @@ def record(
 
     Parameters
     ----------
+    ctx : click.Context
+        Click context used to run timecode generator.
     action : {"start", "stop"}
         Whether to start or stop recording.
-    no_timecode :
-        Flag to suppress timecode activation
+    no_timecode : bool
+        Flag to suppress timecode activation.
     """
     log = logger.bind(command="record")
     global CONNECTED_GOPROS
