@@ -1109,9 +1109,11 @@ def _run_preview(
 @click.option("--import", "import_path", help="Import settings from a path.")
 def settings(
     camera_ref: str | None, export_path: str | None, import_path: str | None
-) -> None:
+) -> None:  # numpydoc ignore=GL03
     """
     Import or export settings for a specified connected GoPro camera.
+
+    \f
 
     Parameters
     ----------
