@@ -937,6 +937,18 @@ def generate_timecode(  # numpydoc ignore=GL03
 
 
 def _check_fps(fps: int) -> None:
+    """
+    Check that all connected cameras are configured to the given frame rate.
+
+    Queries the state of every camera in ``CONNECTED_GOPROS`` and compares its
+    frame rate setting with ``fps``. Mismatches are reported as warnings through
+    the logger; nothing is raised or changed on the cameras.
+
+    Parameters
+    ----------
+    fps : int
+        Expected frame rate of the timecode, in frames per second.
+    """
     log = logger.bind(command="generate_timecode")
     global CONNECTED_GOPROS
     settings_map = _load_bundled_json("OpenGoPro_Settings.json")
