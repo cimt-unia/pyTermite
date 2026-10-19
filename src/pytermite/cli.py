@@ -1142,7 +1142,7 @@ def settings(
             else:
                 log.warning(
                     f"{setting_name} for {camera_ref} "
-                    "could not be changed to {option_name}"
+                    f"could not be changed to {option_name}"
                 )
     else:
         log.warning("No action specified. Use --export or --import.")
