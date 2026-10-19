@@ -880,7 +880,7 @@ def generate_timecode(  # numpydoc ignore=GL03
     duration : int, optional
         Number of seconds to run generation for when action is "jamsync".
     """
-    log = logger.bind(command="gen_timecode")
+    log = logger.bind(command="generate_timecode")
     global ltc_process
     if duration is not None and action != "jamsync":
         log.warning(
@@ -934,8 +934,8 @@ def generate_timecode(  # numpydoc ignore=GL03
         _run_repl(click.get_current_context())
 
 
-def _check_fps(fps: int):
-    log = logger.bind(command="gen_timecode")
+def _check_fps(fps: int) -> None:
+    log = logger.bind(command="generate_timecode")
     global CONNECTED_GOPROS
     with Path("OpenGoPro_Settings.json").open() as f:
         settings_map = json.load(f)
