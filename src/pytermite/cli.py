@@ -910,17 +910,17 @@ def generate_timecode(  # numpydoc ignore=GL03
             else:
                 ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
                 stop_event = Event()
-                ltc_process = Process(
+                ltc_process_temp = Process(
                     target=_run_generator, args=(ltc_config, stop_event)
                 )
-                ltc_process.start()
+                ltc_process_temp.start()
                 log.info(
                     f"Started jamsync timecode generation on device {device} "
                     f"at {fps} fps for {duration} second(s)"
                 )
                 time.sleep(duration)
                 stop_event.set()
-                ltc_process.join()
+                ltc_process_temp.join()
                 log.info("Stopped jamsync timecode generation")
         elif action == "stop":
             log.info("Stopping timecode generation")
