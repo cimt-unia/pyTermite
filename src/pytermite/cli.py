@@ -922,7 +922,7 @@ def generate_timecode(  # numpydoc ignore=GL03
                 stop_event.set()
                 ltc_process_temp.join()
                 log.info("Stopped jamsync timecode generation")
-        elif action == "stop":
+        elif action == "stop" and ltc_process is not None:
             log.info("Stopping timecode generation")
             ltc_process[1].set()
             ltc_process = None
