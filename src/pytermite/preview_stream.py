@@ -124,7 +124,8 @@ class PreviewStream:
                 connection,
                 f"gopro/camera/stream/start?port={self.ips[connection.ip_address]}",
             )
-            if response.status_code == 409:
+            if response and response.status_code == 409:
+                # If a stream is already running, stop it first
                 _ = make_gopro_request(connection, "gopro/camera/stream/stop")
                 response = make_gopro_request(
                     connection,
