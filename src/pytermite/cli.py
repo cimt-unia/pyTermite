@@ -58,6 +58,7 @@ from pytermite.lineartimecode import (
 )
 from pytermite.preview_stream import PreviewStream
 from pytermite.utils import (
+    _load_bundled_json,
     load_serial_numbers_from_json,
     parse_setting,
     parse_status,
@@ -1113,8 +1114,7 @@ def settings(
             response_data = response.json()["settings"]
 
             # settingID list
-            with Path("OpenGoPro_Settings.json").open("r") as f:
-                settings_map = json.load(f)
+            settings_map = _load_bundled_json("OpenGoPro_Settings.json")
 
             response_data = {
                 k: v for k, v in response_data.items() if k in settings_map
