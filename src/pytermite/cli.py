@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import click
-import sounddevice as sd
+import sounddevice
 import structlog
 from click.shell_completion import get_completion_class
 from click_help_colors import HelpColorsGroup
@@ -54,7 +54,6 @@ from pytermite.connection import (
 from pytermite.fetch_data import fetch_filenames, fetch_recorded
 from pytermite.lineartimecode import (
     LTCGenerator,
-    decode_timecode_batch,
 )
 from pytermite.preview_stream import PreviewStream
 from pytermite.utils import (
@@ -796,13 +795,22 @@ def disconnect() -> None:
         _run_repl(click.get_current_context())
 
 
-ltc_processes: list[tuple[Process, SyncEvent]] = []
-last_timecode_flag = False
+ltc_process: tuple[Process, SyncEvent] | None = None
 
 
 @cli.command()
+@click.option(
+    "--no-timecode",
+    "-nt",
+    is_flag=True,
+    show_default=False,
+    help="Deactivate the use of linear timecode",
+)
 @click.argument("action", type=click.Choice(["start", "stop"]))
-def record(action: str) -> None:  # numpydoc ignore=GL03
+@click.pass_context
+def record(
+    ctx: click.Context, action: str, no_timecode: bool
+) -> None:  # numpydoc ignore=GL03
     """
     Start or stop recording on all currently connected GoPro cameras.
 
@@ -810,12 +818,22 @@ def record(action: str) -> None:  # numpydoc ignore=GL03
 
     Parameters
     ----------
+    ctx : click.Context
+        Click context used to run timecode generator.
     action : {"start", "stop"}
         Whether to start or stop recording.
+    no_timecode : bool
+        Flag to suppress timecode activation.
     """
     log = logger.bind(command="record")
     global CONNECTED_GOPROS
+    global ltc_process
     try:
+        if not no_timecode and ltc_process is None and action == "start":
+            ctx.invoke(generate_timecode, action=action)
+        elif no_timecode and ltc_process is not None:
+            log.warning("Provided no-timecode flag, but timecode already running")
+
         asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
         if action == "stop":
             fetch_process = Process(
@@ -864,52 +882,94 @@ def generate_timecode(  # numpydoc ignore=GL03
     duration : int, optional
         Number of seconds to run generation for when action is "jamsync".
     """
-    log = logger.bind(command="gen_timecode")
-    global ltc_processes
+    log = logger.bind(command="generate_timecode")
+    global ltc_process
     if duration is not None and action != "jamsync":
         log.warning(
             "--duration is only used with the jamsync action, "
             f"ignoring it for '{action}'."
         )
     try:
-        if device is None:
-            device = sd.query_devices(kind="output")["index"]
-        if action == "start" and device is not None:
-            ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
-            stop_event = Event()
-            ltc_process = Process(target=_run_generator, args=(ltc_config, stop_event))
-            ltc_process.start()
-            ltc_processes.append((ltc_process, stop_event))
-            log.info(f"Started timecode generation on device {device} at {fps} fps")
-            time.sleep(3)
+        if action == "start":
+            _check_fps(fps)
+            if device is None:
+                device = sounddevice.query_devices(kind="output")["index"]
+            if ltc_process is not None:
+                log.info("Timecode already running")
+            else:
+                ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
+                stop_event = Event()
+                ltc_process_tmp = Process(
+                    target=_run_generator, args=(ltc_config, stop_event)
+                )
+                ltc_process_tmp.start()
+                ltc_process = (ltc_process_tmp, stop_event)
+                log.info(f"Started timecode generation on device {device} at {fps} fps")
+                time.sleep(3)
         elif action == "jamsync":
             if duration is None or duration <= 0:
                 log.error("jamsync requires a positive --duration in seconds!")
             else:
                 ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
                 stop_event = Event()
-                ltc_process = Process(
+                ltc_process_temp = Process(
                     target=_run_generator, args=(ltc_config, stop_event)
                 )
-                ltc_process.start()
+                ltc_process_temp.start()
                 log.info(
                     f"Started jamsync timecode generation on device {device} "
                     f"at {fps} fps for {duration} second(s)"
                 )
                 time.sleep(duration)
                 stop_event.set()
-                ltc_process.join()
+                ltc_process_temp.join()
                 log.info("Stopped jamsync timecode generation")
-        elif action == "stop":
+        elif action == "stop" and ltc_process is not None:
             log.info("Stopping timecode generation")
-            for p in ltc_processes:
-                p[1].set()
+            ltc_process[1].set()
+            ltc_process = None
         else:
             log.warning("No valid options for timecode generator provided!")
-    except (RuntimeError, sd.PortAudioError) as e:
+    except (RuntimeError, sounddevice.PortAudioError) as e:
         log.error("Failed to execute timecode generator action", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
+
+
+def _check_fps(fps: int) -> None:
+    """
+    Check that all connected cameras are configured to the given frame rate.
+
+    Queries the state of every camera in ``CONNECTED_GOPROS`` and compares its
+    frame rate setting with ``fps``. Mismatches are reported as warnings through
+    the logger; nothing is raised or changed on the cameras.
+
+    Parameters
+    ----------
+    fps : int
+        Expected frame rate of the timecode, in frames per second.
+    """
+    log = logger.bind(command="generate_timecode")
+    global CONNECTED_GOPROS
+    settings_map = _load_bundled_json("OpenGoPro_Settings.json")
+    invalid_cameras = []
+    for connection in CONNECTED_GOPROS:
+        request_path = "gopro/camera/state"
+        response = make_gopro_request(connection, request_path)
+        if response is not None and response.status_code == 200:
+            camera_fps = int(
+                (
+                    settings_map["3"]["options"][str(response.json()["settings"]["3"])]
+                ).split(".")[0]
+            )
+            if camera_fps != fps:
+                invalid_cameras.append((connection._identifier, camera_fps))
+
+    if len(invalid_cameras) > 0:
+        log.warning("Invalid Fps settings found")
+        log.warning(f"Timecode Setting: {fps}fps")
+        for identifier, cam_fps in invalid_cameras:
+            log.warning(f"Camera {identifier}: {cam_fps}fps")
 
 
 @cli.command()
@@ -940,56 +1000,6 @@ def fetchdata(save_path: str | None) -> None:  # numpydoc ignore=GL03
         fetch_process.start()
     except RuntimeError as e:
         log.error("Failed to start fetch process", error=str(e))
-    if KEEP_OPEN:
-        _run_repl(click.get_current_context())
-
-
-decode_processes: list[Process] = []
-
-
-@cli.command()
-@click.option("--input_path", default=None, type=click.Path())
-@click.option("--fps", default=50, type=int)
-@click.argument("action", type=click.Choice(["start", "stop"]))
-def decode_path(  # numpydoc ignore=GL03
-    action: str, input_path: str | None, fps: int
-) -> None:
-    """
-    Start or stop timecode decoding as a background process.
-
-    \f
-
-    Parameters
-    ----------
-    action : {"start", "stop"}
-        Either "start" to launch a decode process or "stop" to terminate all
-        running decode processes.
-    input_path : str, optional
-        Path to the input file.
-    fps : int, default: 50
-        Frame rate used for decoding.
-
-    Raises
-    ------
-    RuntimeError
-        If starting or stopping the process fails.
-    """
-    global decode_processes
-    log = logger.bind(command="decode_path")
-    try:
-        if action == "start":
-            p = Process(
-                target=decode_timecode_batch,
-                args=([(input_path, fps)], 1),
-                daemon=False,
-            )
-            decode_processes.append(p)
-            p.start()
-        elif action == "stop":
-            for p in decode_processes:
-                p.terminate()
-    except RuntimeError as e:
-        log.error("Failed to execute decode action", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
