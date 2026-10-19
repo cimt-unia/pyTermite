@@ -21,7 +21,6 @@ import multiprocessing
 import os
 import shlex
 import time
-import sounddevice as sd
 from multiprocessing import Event, Process
 from multiprocessing.synchronize import Event as SyncEvent
 from pathlib import Path
