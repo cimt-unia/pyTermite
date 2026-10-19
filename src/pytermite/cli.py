@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import click
-import sounddevice as sd
+import sounddevice
 import structlog
 from click.shell_completion import get_completion_class
 from click_help_colors import HelpColorsGroup
@@ -891,7 +891,7 @@ def generate_timecode(  # numpydoc ignore=GL03
         if action == "start":
             _check_fps(fps)
             if device is None:
-                device = sd.query_devices(kind="output")["index"]
+                device = sounddevice.query_devices(kind="output")["index"]
             if ltc_process is not None:
                 log.info("Timecode already running")
 
@@ -928,7 +928,7 @@ def generate_timecode(  # numpydoc ignore=GL03
             ltc_process = None
         else:
             log.warning("No valid options for timecode generator provided!")
-    except (RuntimeError, sd.PortAudioError) as e:
+    except (RuntimeError, sounddevice.PortAudioError) as e:
         log.error("Failed to execute timecode generator action", error=str(e))
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
