@@ -937,8 +937,7 @@ def generate_timecode(  # numpydoc ignore=GL03
 def _check_fps(fps: int) -> None:
     log = logger.bind(command="generate_timecode")
     global CONNECTED_GOPROS
-    with Path("OpenGoPro_Settings.json").open() as f:
-        settings_map = json.load(f)
+    settings_map = _load_bundled_json("OpenGoPro_Settings.json")
     invalid_cameras = []
     for connection in CONNECTED_GOPROS:
         request_path = "gopro/camera/state"
