@@ -894,16 +894,16 @@ def generate_timecode(  # numpydoc ignore=GL03
                 device = sounddevice.query_devices(kind="output")["index"]
             if ltc_process is not None:
                 log.info("Timecode already running")
-
-            ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
-            stop_event = Event()
-            ltc_process_tmp = Process(
-                target=_run_generator, args=(ltc_config, stop_event)
-            )
-            ltc_process_tmp.start()
-            ltc_process = (ltc_process_tmp, stop_event)
-            log.info(f"Started timecode generation on device {device} at {fps} fps")
-            time.sleep(3)
+            else:
+                ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
+                stop_event = Event()
+                ltc_process_tmp = Process(
+                    target=_run_generator, args=(ltc_config, stop_event)
+                )
+                ltc_process_tmp.start()
+                ltc_process = (ltc_process_tmp, stop_event)
+                log.info(f"Started timecode generation on device {device} at {fps} fps")
+                time.sleep(3)
         elif action == "jamsync":
             if duration is None or duration <= 0:
                 log.error("jamsync requires a positive --duration in seconds!")
