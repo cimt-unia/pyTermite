@@ -929,7 +929,7 @@ def generate_timecode(  # numpydoc ignore=GL03
             ltc_process[1].set()
             ltc_process = None
         else:
-            log.warning("No valid options for timecode generator provided!")
+            log.info("No valid options for timecode generator provided!")
     except (RuntimeError, sounddevice.PortAudioError) as e:
         log.error("Failed to execute timecode generator action", error=str(e))
     if KEEP_OPEN:
