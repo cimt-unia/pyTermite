@@ -14,7 +14,6 @@ No camera, network or real worker processes are used:
 """
 
 import json
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -168,7 +167,7 @@ def test_fetch_filenames_without_gopros_does_nothing(
 
 def test_fetch_filenames_saves_new_camera(requests_log, recordings_file):
     cam = FakeConnection("1234")
-    requests_log.handlers[("1234", "gopro/media/last_captured")] = FakeResponse(
+    requests_log.handlers["1234", "gopro/media/last_captured"] = FakeResponse(
         payload=entry(1)
     )
 
@@ -180,7 +179,7 @@ def test_fetch_filenames_saves_new_camera(requests_log, recordings_file):
 def test_fetch_filenames_appends_to_existing(requests_log, recordings_file):
     write_entries(recordings_file, {"1234": [entry(1)], "9999": [entry(7)]})
     cam = FakeConnection("1234")
-    requests_log.handlers[("1234", "gopro/media/last_captured")] = FakeResponse(
+    requests_log.handlers["1234", "gopro/media/last_captured"] = FakeResponse(
         payload=entry(2)
     )
 
@@ -195,10 +194,10 @@ def test_fetch_filenames_appends_to_existing(requests_log, recordings_file):
 @pytest.mark.parametrize("response", [None, FakeResponse(status_code=500)])
 def test_fetch_filenames_skips_failed_camera(response, requests_log, recordings_file):
     ok_cam, bad_cam = FakeConnection("1111"), FakeConnection("2222")
-    requests_log.handlers[("1111", "gopro/media/last_captured")] = FakeResponse(
+    requests_log.handlers["1111", "gopro/media/last_captured"] = FakeResponse(
         payload=entry(1)
     )
-    requests_log.handlers[("2222", "gopro/media/last_captured")] = response
+    requests_log.handlers["2222", "gopro/media/last_captured"] = response
 
     fetch_data.fetch_filenames({ok_cam, bad_cam})
 
@@ -219,7 +218,7 @@ def test_fetch_filenames_all_failed_writes_nothing(requests_log, recordings_file
 def test_fetch_recoding_writes_file(requests_log, tmp_path):
     cam = FakeConnection("1234")
     content = b"x" * 20000  # several 8192-byte chunks
-    requests_log.handlers[("1234", "videos/DCIM/100GOPRO/GX01.MP4")] = FakeResponse(
+    requests_log.handlers["1234", "videos/DCIM/100GOPRO/GX01.MP4"] = FakeResponse(
         content=content
     )
     target_dir = tmp_path / "out" / "1234"  # does not exist yet
@@ -235,7 +234,7 @@ def test_fetch_recoding_writes_file(requests_log, tmp_path):
 @pytest.mark.parametrize("response", [None, FakeResponse(status_code=404)])
 def test_fetch_recoding_failure_creates_nothing(response, requests_log, tmp_path):
     cam = FakeConnection("1234")
-    requests_log.handlers[("1234", "videos/x")] = response
+    requests_log.handlers["1234", "videos/x"] = response
     target_dir = tmp_path / "out" / "1234"
 
     result = fetch_data._fetch_recoding(
@@ -275,8 +274,8 @@ def test_fetch_recorded_without_saved_entries_aborts(
 
 
 def mark_available(requests_log, cam_id, e, content=b"video"):
-    requests_log.handlers[(cam_id, info_path(e))] = FakeResponse()
-    requests_log.handlers[(cam_id, video_path(e))] = FakeResponse(content=content)
+    requests_log.handlers[cam_id, info_path(e)] = FakeResponse()
+    requests_log.handlers[cam_id, video_path(e)] = FakeResponse(content=content)
 
 
 def test_fetch_recorded_downloads_and_clears_entries(
@@ -305,8 +304,8 @@ def test_fetch_recorded_keeps_failed_downloads(
     mark_available(requests_log, "1234", e1)
     mark_available(requests_log, "1234", e3)
     # e2: info OK, but the download itself fails
-    requests_log.handlers[("1234", info_path(e2))] = FakeResponse()
-    requests_log.handlers[("1234", video_path(e2))] = FakeResponse(status_code=500)
+    requests_log.handlers["1234", info_path(e2)] = FakeResponse()
+    requests_log.handlers["1234", video_path(e2)] = FakeResponse(status_code=500)
 
     fetch_data.fetch_recorded({FakeConnection("1234")}, save_path=tmp_path)
 
@@ -332,12 +331,12 @@ def test_fetch_recorded_retries_info_then_succeeds(
 ):
     e = entry(1)
     write_entries(recordings_file, {"1234": [e]})
-    requests_log.handlers[("1234", info_path(e))] = [
+    requests_log.handlers["1234", info_path(e)] = [
         None,
         FakeResponse(status_code=503),
         FakeResponse(),
     ]
-    requests_log.handlers[("1234", video_path(e))] = FakeResponse(content=b"v")
+    requests_log.handlers["1234", video_path(e)] = FakeResponse(content=b"v")
 
     fetch_data.fetch_recorded({FakeConnection("1234")}, save_path=tmp_path)
 
