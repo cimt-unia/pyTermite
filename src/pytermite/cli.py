@@ -1005,21 +1005,22 @@ def fetchdata(save_path: str | None) -> None:  # numpydoc ignore=GL03
 
 
 @cli.command()
-@click.argument("identifier", type=str)
+@click.argument("identifiers", default=None, type=str)
 @click.argument("setting", type=str)
 @click.argument("option", type=str)
 def change_setting(  # numpydoc ignore=GL03
-    identifier: str, setting: str, option: str
+    identifiers: str | None, setting: str, option: str
 ) -> None:
     """
-    Change a setting of a connected GoPro.
+    Change a setting of all or subset of all connected GoPros.
 
     \f
 
     Parameters
     ----------
-    identifier : str
-        Identifier or name of the connected GoPro.
+    identifiers : str or None
+        Identifiers or names of the connected GoPros. If None,
+        setting is changed for all connected GoPros.
     setting : str
         Setting ID or name to change.
     option : str
@@ -1028,25 +1029,32 @@ def change_setting(  # numpydoc ignore=GL03
     global CONNECTED_GOPROS
     log = logger.bind(command="change_setting")
     try:
-        connection = next(
-            (
-                con
-                for con in CONNECTED_GOPROS
-                if con.identifier == identifier
-                or (isinstance(con, WiredConnection) and con.name == identifier)
-            ),
-            None,
-        )
-        if connection is None:
-            log.warning(f"{identifier} is not connected")
+        if identifiers is None:
+            identifiers_list = [con.identifier for con in CONNECTED_GOPROS]
         else:
-            sid, oid = parse_setting(setting, option)
-            request_path = f"gopro/camera/setting?option={oid}&setting={sid}"
-            response = make_gopro_request(connection, request_path)
-            if response is not None and response.status_code == 200:
-                log.info(f"Changed {setting} for {identifier} to {option}")
+            identifiers_list = [
+                arg.strip() for arg in identifiers.split(",") if arg.strip()
+            ]
+        for identifier in identifiers_list:
+            connection = next(
+                (
+                    con
+                    for con in CONNECTED_GOPROS
+                    if con.identifier == identifier
+                    or (isinstance(con, WiredConnection) and con.name == identifier)
+                ),
+                None,
+            )
+            if connection is None:
+                log.warning(f"{identifier} is not connected")
             else:
-                log.warning(f"{setting} for {identifier} could not be changed")
+                sid, oid = parse_setting(setting, option)
+                request_path = f"gopro/camera/setting?option={oid}&setting={sid}"
+                response = make_gopro_request(connection, request_path)
+                if response is not None and response.status_code == 200:
+                    log.info(f"Changed {setting} for {identifier} to {option}")
+                else:
+                    log.warning(f"{setting} for {identifier} could not be changed")
     except RuntimeError as e:
         log.error("Failed to change setting", error=str(e))
     if KEEP_OPEN:
