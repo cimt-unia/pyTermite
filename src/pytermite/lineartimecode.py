@@ -11,14 +11,12 @@ write it into the metadata of the video file.
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
-import multiprocessing
 import pathlib
 import queue
 import threading
 from multiprocessing.synchronize import Event as SyncEvent
 from typing import TYPE_CHECKING
 
-import ffmpeg
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
@@ -199,7 +197,7 @@ class LTCGenerator:
 
         for conv in conversions:
             word |= conv
-            
+
         parity_bit = 59 if self.fps == 25 else 27
         word &= ~(1 << parity_bit)
         word |= (word.bit_count() % 2) << parity_bit
