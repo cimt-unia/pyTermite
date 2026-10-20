@@ -20,96 +20,144 @@ class FakeWired:
         self.identifier = serial
         self._name = None
 
-class FakeWireless:
-    def __init__(self, target, interfaces, keep_alive_interval, maintain_state, cohn_db):
-        self.identifier = target
-
-@pytest.mark.asyncio
-async def test_create_wired_gopros_from_dict(monkeypatch):
-    # Use real WiredConnection but monkeypatch its constructor to a simple object
-
-    monkeypatch.setattr(connection, "WiredConnection", FakeWired)
-    inp = {"camA": "S1", "camB": "S2"}
-    g = connection.create_wired_gopros(inp)
-    assert set(g.keys()) == set(inp.keys())
-    assert all(isinstance(v, FakeWired) for v in g.values())
-
-
-@pytest.mark.asyncio
-async def test_create_wireless_gopros_from_dict(monkeypatch):
+    async def open(self, retries=1, timeout=1):
+        self.open_called = True
     
-    monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
-    inp = {"camA": "S1", "camB": "S2"}
-    g = connection.create_wireless_gopros(inp)
-    assert set(g.keys()) == set(inp.keys())
-    assert all(isinstance(v, FakeWireless) for v in g.values())
+    async def close(self):
+        self.closed = True
+
+    @property
+    async def name(self):
+        return self.identifier
+
+class FakeWireless:
+    def __init__(self, target, *args, **kwargs):
+        self.identifier = target
+        self.is_ble_connected = True
+        self._ble = True
+        self.open_called = False
+        self.closed = False
+
+    async def open(self, retries=1, timeout=1):
+        self.open_called = True
+
+    async def close(self):
+        self.closed = True
+
+    @property
+    async def name(self):
+        return self.identifier
+
+class CreateGoPros:
+    """
+    Test the creation of ``WirelessConnection`` and ``WiredConnection`` instances.
+    """
+
+    @pytest.mark.asyncio
+    async def test_create_wired_gopros_from_dict(monkeypatch):
+        # Use real WiredConnection but monkeypatch its constructor to a simple object
+
+        monkeypatch.setattr(connection, "WiredConnection", FakeWired)
+        inp = {"camA": "S1", "camB": "S2"}
+        g = connection.create_wired_gopros(inp)
+        assert set(g.keys()) == set(inp.keys())
+        assert all(isinstance(v, FakeWired) for v in g.values())
 
 
-@pytest.mark.asyncio
-async def test_create_wired_gopros_from_set(monkeypatch):
-
-    monkeypatch.setattr(connection, "WiredConnection", FakeWired)
-    inp = {"S1", "S2"}
-    g = connection.create_wired_gopros(inp)
-    assert set(g.keys()) == inp
-
-
-@pytest.mark.asyncio
-async def test_create_wireless_gopros_from_set(monkeypatch):
-
-    monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
-    inp = {"S1", "S2"}
-    g = connection.create_wireless_gopros(inp)
-    assert set(g.keys()) == inp
+    @pytest.mark.asyncio
+    async def test_create_wireless_gopros_from_dict(monkeypatch):
+        
+        monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
+        inp = {"camA": "S1", "camB": "S2"}
+        g = connection.create_wireless_gopros(inp)
+        assert set(g.keys()) == set(inp.keys())
+        assert all(isinstance(v, FakeWireless) for v in g.values())
 
 
-@pytest.mark.asyncio
-async def test_connect_and_close_gopros(monkeypatch):
-    class FakeWired:
-        def __init__(self, serial):
-            self.identifier = serial
-            self.serial = serial
-            self.open_called = False
-            self.closed = False
+    @pytest.mark.asyncio
+    async def test_create_wired_gopros_from_set(monkeypatch):
 
-        async def open(self, retries=1, timeout=1):
-            self.open_called = True
+        monkeypatch.setattr(connection, "WiredConnection", FakeWired)
+        inp = {"S1", "S2"}
+        g = connection.create_wired_gopros(inp)
+        assert set(g.keys()) == inp
 
-        async def close(self):
-            self.closed = True
 
-        @property
-        async def name(self):
-            return self.identifier
+    @pytest.mark.asyncio
+    async def test_create_wireless_gopros_from_set(monkeypatch):
 
-    class FakeWireless:
-        def __init__(self, target, interfaces=None, keep_alive_interval=None, maintain_state=None, cohn_db=None):
-            self.identifier = target
-            self.is_ble_connected = True
-            self._ble = True
-            self.open_called = False
-            self.closed = False
+        monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
+        inp = {"S1", "S2"}
+        g = connection.create_wireless_gopros(inp)
+        assert set(g.keys()) == inp
 
-        async def open(self, retries=1, timeout=1):
-            self.open_called = True
+    @pytest.mark.asyncio
+    async def test_create_cohn_gopros_using_str_path(monkeypatch, tmp_path):
 
-        async def close(self):
-            self.closed = True
+        created = []
 
-        @property
-        async def name(self):
-            return self.identifier
+        class FakeWireless:
+            def __init__(self, target, interfaces=None, cohn_db=None, **kwargs):
+                self.identifier = target
+                self.cohn_db = cohn_db
+                created.append(self)
 
-    monkeypatch.setattr(connection, "WiredConnection", FakeWired)
-    monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
-    gopros = {"a": FakeWired("S1"), "b": FakeWired("S2"), "c": FakeWireless("S3"), "d": FakeWireless("S4")}
+        monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
+        ids = {"S1", "S2"}
+        cohn_db_path = tmp_path / "cohn_db.json"
 
-    collected = [gp async for gp in connection.connect_gopros(gopros)]
+        g = connection.create_cohn_gopros(ids, str(cohn_db_path))
 
-    assert len(collected) == 4
-    await connection.close_gopros(gopros)
-    assert all(v.closed for v in gopros.values())
+        assert set(g.keys()) == ids
+        assert all(isinstance(v, FakeWireless) for v in g.values())
+        # str was converted to Path and handed through
+        assert all(v.cohn_db == cohn_db_path for v in created)
+        # nothing touched the disk
+        assert not cohn_db_path.exists()
 
+class CloseGoPros:
+
+    @pytest.mark.asyncio
+    async def test_connect_and_close_gopros(monkeypatch):
+        """Create and close ``WiredConnection`` instances"""
+
+        monkeypatch.setattr(connection, "WiredConnection", FakeWired)
+
+        gopros = {"a": FakeWired("S1"), "b": FakeWired("S2")}
+
+        collected = [gp async for gp in connection.connect_gopros(gopros)]
+
+        assert len(collected) == 2
+        await connection.close_gopros(gopros)
+        assert all(v.closed for v in gopros.values())
+
+    @pytest.mark.asyncio
+    async def test_connect_and_close_wireless_gopros(monkeypatch):
+        """Create and close ``WirelessConnection`` instances"""
+
+        monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
+
+        gopros = {"a": FakeWireless("S1"), "b": FakeWireless("S2")}
+
+        collected = [gp async for gp in connection.connect_gopros_wireless(gopros)]
+
+        assert len(collected) == 2
+        await connection.close_gopros(gopros)
+        assert all(v.closed for v in gopros.values())
+
+    @pytest.mark.asyncio
+    async def test_connect_and_close_cohn(monkeypatch):
+        """Create and close ``WirelessConnection`` instances already provisioned for COHN"""
+
+        monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
+
+        gopros = {"a": FakeWireless("S1"), "b": FakeWireless("S2")}
+
+        collected = [gp async for gp in connection.connect_gopros_cohn(gopros)]
+
+        assert len(collected) == 2
+        await connection.close_gopros(gopros)
+        assert all(v.closed for v in gopros.values())
 
 @pytest.mark.asyncio
 async def test_scan_for_gopros_cancels_interrupt_waiter_on_timeout(monkeypatch):
@@ -372,12 +420,6 @@ async def test_connect_gopros_cohn(fake_open_connection):
     assert all(gp.open_called for gp in gopros.values())
     assert fake_open_connection == [("192.168.0.30", 443), ("192.168.0.31", 443)]
 
-@pytest.mark.asyncio
-async def test_scan_for_gopros_ble(monkeypatch):
-    # adds devices to global BLES
-    BLES = None
-
-    assert connection.scan_for_gopros_ble()
 
 
 # @pytest.mark.asyncio
