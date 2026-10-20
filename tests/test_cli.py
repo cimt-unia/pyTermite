@@ -53,9 +53,7 @@ class FakeWired:
         async def get_camera_state():
             if isinstance(battery, Exception):
                 raise battery
-            return SimpleNamespace(
-                data={StatusId.INTERNAL_BATTERY_PERCENTAGE: battery}
-            )
+            return SimpleNamespace(data={StatusId.INTERNAL_BATTERY_PERCENTAGE: battery})
 
         self.http_command = SimpleNamespace(get_camera_state=get_camera_state)
 
@@ -295,9 +293,13 @@ def test_setup_completion_registers_completer(monkeypatch):
     import readline
 
     registered = {}
-    monkeypatch.setattr(readline, "set_completer", lambda f: registered.setdefault("f", f))
+    monkeypatch.setattr(
+        readline, "set_completer", lambda f: registered.setdefault("f", f)
+    )
     monkeypatch.setattr(readline, "set_completer_delims", lambda d: None)
-    monkeypatch.setattr(readline, "parse_and_bind", lambda s: registered.setdefault("bind", s))
+    monkeypatch.setattr(
+        readline, "parse_and_bind", lambda s: registered.setdefault("bind", s)
+    )
     monkeypatch.setattr(readline, "get_line_buffer", lambda: "rec")
     monkeypatch.setattr(readline, "get_endidx", lambda: 3)
 
@@ -669,7 +671,8 @@ def test_list_connected_prints_battery(monkeypatch, logs):
 
     result = invoke("list-connected")
 
-    assert "1111" in result.output and "77" in result.output
+    assert "1111" in result.output
+    assert "77" in result.output
     assert "2222" not in result.output
     assert any("2222" in e for e in events(logs, "warning"))
 
@@ -751,7 +754,8 @@ def test_record_stop_fetches_filenames(monkeypatch, shutter, processes):
     fetch = processes[0]
     assert fetch.target is cli_mod.fetch_filenames
     assert fetch.args == ({cam},)
-    assert fetch.started and fetch.daemon is False
+    assert fetch.started
+    assert fetch.daemon is False
 
 
 def test_record_shutter_error_is_logged(monkeypatch, processes, logs):
@@ -784,7 +788,8 @@ def test_timecode_start_uses_default_device(processes, audio, no_sleep):
     assert audio.queries == ["output"]
     (proc,) = processes
     config, event = proc.args
-    assert proc.target is cli_mod._run_generator and proc.started
+    assert proc.target is cli_mod._run_generator
+    assert proc.started
     assert config == {"sample_rate": 48000, "fps": 25, "device": 7}
     assert cli_mod.ltc_process == (proc, event)
     assert no_sleep == [3]
@@ -830,7 +835,8 @@ def test_timecode_jamsync(processes, no_sleep):
     (proc,) = processes
     _, event = proc.args
     assert no_sleep == [4]
-    assert event.is_set() and proc.joined
+    assert event.is_set()
+    assert proc.joined
     # jamsync is temporary: it must not be stored as the running generator
     assert cli_mod.ltc_process is None
 
@@ -885,7 +891,10 @@ def test_run_generator(monkeypatch):
 # _check_fps
 # --------------------------------------------------------------------------- #
 
-SETTINGS_MAP = {"2": {"options": {"1": "4K"}}, "3": {"options": {"5": "60.0", "8": "50.0"}}}
+SETTINGS_MAP = {
+    "2": {"options": {"1": "4K"}},
+    "3": {"options": {"5": "60.0", "8": "50.0"}},
+}
 
 
 def state(fps_option, extra=None):
@@ -894,11 +903,9 @@ def state(fps_option, extra=None):
 
 def test_check_fps_warns_on_mismatch(monkeypatch, requests_log, logs):
     monkeypatch.setattr(cli_mod, "_load_bundled_json", lambda name: SETTINGS_MAP)
-    connect_cams(
-        monkeypatch, FakeWired("1111"), FakeWired("2222"), FakeWired("3333")
-    )
-    requests_log.handlers[("1111", "gopro/camera/state")] = state(8)  # 50 fps
-    requests_log.handlers[("2222", "gopro/camera/state")] = state(5)  # 60 fps
+    connect_cams(monkeypatch, FakeWired("1111"), FakeWired("2222"), FakeWired("3333"))
+    requests_log.handlers["1111", "gopro/camera/state"] = state(8)  # 50 fps
+    requests_log.handlers["2222", "gopro/camera/state"] = state(5)  # 60 fps
     # 3333: request fails -> ignored
 
     cli_mod._check_fps(50)
@@ -911,7 +918,7 @@ def test_check_fps_warns_on_mismatch(monkeypatch, requests_log, logs):
 def test_check_fps_all_match(monkeypatch, requests_log, logs):
     monkeypatch.setattr(cli_mod, "_load_bundled_json", lambda name: SETTINGS_MAP)
     connect_cams(monkeypatch, FakeWired("1111"))
-    requests_log.handlers[("1111", "gopro/camera/state")] = state(8)
+    requests_log.handlers["1111", "gopro/camera/state"] = state(8)
 
     cli_mod._check_fps(50)
 
@@ -923,7 +930,9 @@ def test_check_fps_all_match(monkeypatch, requests_log, logs):
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("args, save_path", [([], None), (["--save_path", "out"], "out")])
+@pytest.mark.parametrize(
+    "args, save_path", [([], None), (["--save_path", "out"], "out")]
+)
 def test_fetchdata_starts_fetch_process(monkeypatch, processes, args, save_path):
     cam = FakeWired("1111")
     connect_cams(monkeypatch, cam)
@@ -933,7 +942,8 @@ def test_fetchdata_starts_fetch_process(monkeypatch, processes, args, save_path)
     (proc,) = processes
     assert proc.target is cli_mod.fetch_recorded
     assert proc.args == ({cam}, save_path)
-    assert proc.started and proc.daemon is False
+    assert proc.started
+    assert proc.daemon is False
 
 
 # --------------------------------------------------------------------------- #
@@ -949,7 +959,7 @@ def parse(monkeypatch):
 def test_change_setting_success(monkeypatch, requests_log, parse, logs):
     connect_cams(monkeypatch, FakeWireless("1111"))
     path = "gopro/camera/setting?option=1&setting=2"
-    requests_log.handlers[("1111", path)] = FakeResponse()
+    requests_log.handlers["1111", path] = FakeResponse()
 
     invoke("change-setting", "1111", "resolution", "4K")
 
@@ -1001,7 +1011,8 @@ def test_preview_start(monkeypatch, processes):
 
     (proc,) = processes
     serials, event = proc.args
-    assert proc.target is cli_mod._run_preview and proc.started
+    assert proc.target is cli_mod._run_preview
+    assert proc.started
     assert serials == ("serialized", {cam})
     assert cli_mod.PREVIEW_PROCESSES == [(proc, event)]
 
@@ -1013,7 +1024,8 @@ def test_preview_stop_signals_all_and_drops_finished(monkeypatch, processes):
 
     invoke("preview-stream", "stop")
 
-    assert alive[1].is_set() and dead[1].is_set()
+    assert alive[1].is_set()
+    assert dead[1].is_set()
     assert cli_mod.PREVIEW_PROCESSES == [alive]
 
 
@@ -1027,7 +1039,9 @@ def test_preview_without_action_warns(processes, logs):
 def test_run_preview(monkeypatch):
     created = []
     monkeypatch.setattr(
-        cli_mod, "PreviewStream", lambda serials, event, log: created.append((serials, event))
+        cli_mod,
+        "PreviewStream",
+        lambda serials, event, log: created.append((serials, event)),
     )
     event = threading.Event()
 
@@ -1064,7 +1078,7 @@ def test_settings_without_action(monkeypatch, requests_log, logs):
 def test_settings_export(monkeypatch, requests_log, tmp_path, ref):
     monkeypatch.setattr(cli_mod, "_load_bundled_json", lambda name: SETTINGS_MAP)
     connect_cams(monkeypatch, FakeWired("1111", name="GP-Left"))
-    requests_log.handlers[("1111", "gopro/camera/state")] = state(8, {"2": 1, "999": 4})
+    requests_log.handlers["1111", "gopro/camera/state"] = state(8, {"2": 1, "999": 4})
     out = tmp_path / "settings.json"
 
     invoke("settings", ref, "--export", str(out))
@@ -1073,7 +1087,9 @@ def test_settings_export(monkeypatch, requests_log, tmp_path, ref):
     assert json.loads(out.read_text()) == {"2": 1, "3": 8}
 
 
-def test_settings_export_failure_writes_nothing(monkeypatch, requests_log, tmp_path, logs):
+def test_settings_export_failure_writes_nothing(
+    monkeypatch, requests_log, tmp_path, logs
+):
     connect_cams(monkeypatch, FakeWired("1111"))
     out = tmp_path / "settings.json"
 
@@ -1096,7 +1112,7 @@ def test_settings_import(monkeypatch, requests_log, tmp_path, logs):
         return f"setting{setting}", f"option{value}"
 
     monkeypatch.setattr(cli_mod, "parse_setting", _parse)
-    requests_log.handlers[("1111", "gopro/camera/setting?option=1&setting=2")] = (
+    requests_log.handlers["1111", "gopro/camera/setting?option=1&setting=2"] = (
         FakeResponse()
     )
     # setting 3 gets no handler -> request fails
@@ -1130,7 +1146,7 @@ def two_cams(monkeypatch, requests_log):
     wired, wireless = FakeWired("1111"), FakeWireless("2222")
     connect_cams(monkeypatch, wired, wireless)
     for cam_id, battery in (("1111", 81), ("2222", 42)):
-        requests_log.handlers[(cam_id, "gopro/camera/state")] = FakeResponse(
+        requests_log.handlers[cam_id, "gopro/camera/state"] = FakeResponse(
             payload={"settings": {"2": 1, "99": 0}, "status": {"70": battery}}
         )
     return requests_log
@@ -1139,10 +1155,14 @@ def two_cams(monkeypatch, requests_log):
 def test_get_camera_state_both_tables(two_cams):
     out = invoke("get-camera-state", "1111,2222").output
 
-    assert "1111 (USB)" in out and "2222 (Wireless)" in out
-    assert "setting2" in out and "opt1" in out
+    assert "1111 (USB)" in out
+    assert "2222 (Wireless)" in out
+    assert "setting2" in out
+    assert "opt1" in out
     assert "setting99" not in out  # unparsable settings are skipped
-    assert "status70" in out and "81" in out and "42" in out
+    assert "status70" in out
+    assert "81" in out
+    assert "42" in out
 
 
 def test_get_camera_state_settings_only(two_cams):
@@ -1159,11 +1179,12 @@ def test_get_camera_state_status_only(two_cams):
 
 def test_get_camera_state_defaults_to_all_cameras(two_cams):
     out = invoke("get-camera-state").output
-    assert "1111 (USB)" in out and "2222 (Wireless)" in out
+    assert "1111 (USB)" in out
+    assert "2222 (Wireless)" in out
 
 
 def test_get_camera_state_unknown_and_failing(two_cams, logs):
-    del two_cams.handlers[("2222", "gopro/camera/state")]
+    del two_cams.handlers["2222", "gopro/camera/state"]
 
     invoke("get-camera-state", "2222, 9999")
 
