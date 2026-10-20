@@ -11,12 +11,12 @@ import asyncio
 import math
 import threading
 import tkinter as tk
-from screeninfo import get_monitors
 from multiprocessing.synchronize import Event as SyncEvent
 
 import PIL.Image
 import PIL.ImageTk
 import structlog
+from screeninfo import get_monitors
 
 from pytermite.connection import WiredConnection, WirelessConnection, make_gopro_request
 
@@ -63,10 +63,14 @@ class PreviewStream:
 
         self.root = tk.Tk()
         self.canvas_size = min(math.ceil(math.sqrt(len(connection))), 3)
-        canvas_width, canvas_height, cam_width, cam_height = self.get_canvas_resolution(200)
+        canvas_width, canvas_height, cam_width, cam_height = self.get_canvas_resolution(
+            200
+        )
         self.cam_width = cam_width
         self.cam_height = cam_height
-        self.canvas = tk.Canvas(self.root, width=canvas_width, height=canvas_height, bg="white")
+        self.canvas = tk.Canvas(
+            self.root, width=canvas_width, height=canvas_height, bg="white"
+        )
         self.canvas.grid(row=0, column=0)
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -112,12 +116,17 @@ class PreviewStream:
             if response is None or not response.ok:
                 self.logger.warning(f"Failed to stop stream for {ip}: {response}")
 
-    def get_canvas_resolution(self, margin:int=0):
+    def get_canvas_resolution(self, margin: int = 0):
         monitors = get_monitors()
         primary = next((m for m in monitors if m.is_primary), monitors[0])
         cam_width = (primary.width - margin) // self.canvas_size
         cam_height = (cam_width * 9) // 16
-        return cam_width * self.canvas_size, cam_height * ((len(self.connection) + 2) // 3), cam_width, cam_height
+        return (
+            cam_width * self.canvas_size,
+            cam_height * ((len(self.connection) + 2) // 3),
+            cam_width,
+            cam_height,
+        )
 
     async def show_streams(self) -> None:
         """
