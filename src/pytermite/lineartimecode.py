@@ -187,14 +187,11 @@ class LTCGenerator:
             The encoded timecode in the format "HH:MM:SS:FF".
         """
         total_frames = (
-            (
-                self.time_dict["hh"] * 3600
-                + self.time_dict["mm"] * 60
-                + self.time_dict["ss"]
-            ) * self.fps
-            + self.frame_number
-        )
-        
+            self.time_dict["hh"] * 3600
+            + self.time_dict["mm"] * 60
+            + self.time_dict["ss"]
+        ) * self.fps + self.frame_number
+
         ff = total_frames % self.fps
         ss = (total_frames // self.fps) % 60
         mm = (total_frames // (self.fps * 60)) % 60
@@ -253,11 +250,7 @@ class LTCGenerator:
         """
         if self.use_system_time:
             now = datetime.now()
-            self.time_dict = {
-                "hh": now.hour,
-                "mm": now.minute,
-                "ss": now.second
-            }
+            self.time_dict = {"hh": now.hour, "mm": now.minute, "ss": now.second}
         n = 2 if self.double_frames else 1
         while not self.stop_event.is_set():
             word, timecode = self.create_next_bitword()
