@@ -8,18 +8,25 @@
 import asyncio
 
 import pytest
-import requests
 
 from pytermite import connection
+
+from unittest.mock import AsyncMock, MagicMock
+from types import SimpleNamespace
+
+class FakeWired:
+    def __init__(self, serial=None):
+        self.serial = serial
+        self.identifier = serial
+        self._name = None
+
+class FakeWireless:
+    def __init__(self, target, interfaces, keep_alive_interval, maintain_state, cohn_db):
+        self.identifier = target
 
 @pytest.mark.asyncio
 async def test_create_wired_gopros_from_dict(monkeypatch):
     # Use real WiredConnection but monkeypatch its constructor to a simple object
-    class FakeWired:
-        def __init__(self, serial=None):
-            self.serial = serial
-            self.identifier = serial
-            self._name = None
 
     monkeypatch.setattr(connection, "WiredConnection", FakeWired)
     inp = {"camA": "S1", "camB": "S2"}
@@ -30,10 +37,7 @@ async def test_create_wired_gopros_from_dict(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_create_wireless_gopros_from_dict(monkeypatch):
-    class FakeWireless:
-        def __init__(self, target, interfaces, keep_alive_interval, maintain_state, cohn_db):
-            self.identifier = target
-
+    
     monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
     inp = {"camA": "S1", "camB": "S2"}
     g = connection.create_wireless_gopros(inp)
@@ -43,10 +47,6 @@ async def test_create_wireless_gopros_from_dict(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_create_wired_gopros_from_set(monkeypatch):
-    class FakeWired:
-        def __init__(self, serial=None):
-            self.serial = serial
-            self.identifier = serial
 
     monkeypatch.setattr(connection, "WiredConnection", FakeWired)
     inp = {"S1", "S2"}
@@ -56,9 +56,6 @@ async def test_create_wired_gopros_from_set(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_create_wireless_gopros_from_set(monkeypatch):
-    class FakeWireless:
-        def __init__(self, target, interfaces, keep_alive_interval, maintain_state, cohn_db):
-            self.identifier = target
 
     monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
     inp = {"S1", "S2"}
@@ -339,58 +336,49 @@ async def test_connect_gopros_wireless_success(monkeypatch):
     ]
     assert set(yielded_gopros) == set(gopros.values())
 
+@pytest.fixture
+def fake_open_connection(monkeypatch):
+    calls = []
+
+    async def _fake(host, port, *args, **kwargs):
+        calls.append((host, port))
+        writer = MagicMock()
+        writer.wait_closed = AsyncMock()
+        return MagicMock(), writer  # (reader, writer)
+
+    monkeypatch.setattr(connection.asyncio, "open_connection", _fake)
+    return calls
 
 @pytest.mark.asyncio
-async def test_connect_gopros_cohn(monkeypatch):
-    class FakeStatus:
-        def __init__(self):
-            self.status = "ok"
-            self.state = "ready"
-
-    class FakeGoProResp:
-        def __init__(self):
-            self.data = FakeStatus()
-
-    class FakeResult:
-        def __init__(self):
-            self.success = True
-
-    class FakeCohn:
-        def __init__(self):
-            self.credentials = None
-
-        async def configure(self, force_reprovision, timeout):
-            return FakeResult()
-
-    class FakeBleCommand:
-        async def cohn_get_status(self, register):
-            return FakeGoProResp()
+async def test_connect_gopros_cohn(fake_open_connection):
+    class FakeHttpCommand:
+        async def get_camera_state(self):
+            return MagicMock()
 
     class FakeWireless:
-        def __init__(self, target, interfaces=None, keep_alive_interval=None, maintain_state=None, cohn_db=None):
-            self.identifier = target
-            self.is_ble_connected = True
-            self._ble = True
+        def __init__(self, ip):
+            self.cohn = SimpleNamespace(credentials=SimpleNamespace(ip_address=ip))
+            self.http_command = FakeHttpCommand()
             self.open_called = False
-            self.closed = False
-            self._is_open = True
-            
-            self.ble_command = FakeBleCommand()
-            self.cohn = FakeCohn()
 
         async def open(self, retries=1, timeout=1):
             self.open_called = True
 
-        async def _close_ble(self):
-            self.closed = True
+    gopros = {"a": FakeWireless("192.168.0.30"), "b": FakeWireless("192.168.0.31")}
 
-    monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
-    gopros = {"a": FakeWireless("S1"), "b": FakeWireless("S2")}
+    yielded = [gp async for gp in connection.connect_gopros_cohn(gopros)]
 
-    yielded_gopros = [
-        gp async for gp in connection.connect_gopros_cohn(gopros)
-    ]
-    assert set(yielded_gopros) == set(gopros.values())
+    assert yielded == list(gopros.values())
+    assert all(gp.open_called for gp in gopros.values())
+    assert fake_open_connection == [("192.168.0.30", 443), ("192.168.0.31", 443)]
+
+@pytest.mark.asyncio
+async def test_scan_for_gopros_ble(monkeypatch):
+    # adds devices to global BLES
+    BLES = None
+
+    assert connection.scan_for_gopros_ble()
+
 
 # @pytest.mark.asyncio
 # async def test_scan_for_gopros_usb_finds_devices(monkeypatch):
