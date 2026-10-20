@@ -73,7 +73,7 @@ BLES: dict[str, WirelessConnection] = {}
 COHN: dict[str, WirelessConnection] = {}
 CONNECTED_GOPROS: set[WiredConnection | WirelessConnection] = set()
 KEEP_OPEN = False
-PREVIEW_PROCESSES: list[tuple[Process, SyncEvent]] = []
+PREVIEW_PROCESS: tuple[Process, SyncEvent] | None = None
 
 
 class _LineContinue(enum.StrEnum):
@@ -795,7 +795,7 @@ def disconnect() -> None:
         _run_repl(click.get_current_context())
 
 
-ltc_process: tuple[Process, SyncEvent] | None = None
+LTC_PROCESS: tuple[Process, SyncEvent] | None = None
 
 
 @cli.command()
@@ -827,11 +827,11 @@ def record(
     """
     log = logger.bind(command="record")
     global CONNECTED_GOPROS
-    global ltc_process
+    global LTC_PROCESS
     try:
-        if not no_timecode and ltc_process is None and action == "start":
+        if not no_timecode and LTC_PROCESS is None and action == "start":
             ctx.invoke(generate_timecode, action=action)
-        elif no_timecode and ltc_process is not None:
+        elif no_timecode and LTC_PROCESS is not None:
             log.warning("Provided no-timecode flag, but timecode already running")
 
         asyncio.run(camera_shutter(CONNECTED_GOPROS, action))
@@ -883,7 +883,7 @@ def generate_timecode(  # numpydoc ignore=GL03
         Number of seconds to run generation for when action is "jamsync".
     """
     log = logger.bind(command="generate_timecode")
-    global ltc_process
+    global LTC_PROCESS
     if duration is not None and action != "jamsync":
         log.warning(
             "--duration is only used with the jamsync action, "
@@ -894,16 +894,16 @@ def generate_timecode(  # numpydoc ignore=GL03
             _check_fps(fps)
             if device is None:
                 device = sounddevice.query_devices(kind="output")["index"]
-            if ltc_process is not None:
+            if LTC_PROCESS is not None:
                 log.info("Timecode already running")
             else:
                 ltc_config = {"sample_rate": sample_rate, "fps": fps, "device": device}
                 stop_event = Event()
-                ltc_process_tmp = Process(
+                ltc_process_temp = Process(
                     target=_run_generator, args=(ltc_config, stop_event)
                 )
-                ltc_process_tmp.start()
-                ltc_process = (ltc_process_tmp, stop_event)
+                ltc_process_temp.start()
+                LTC_PROCESS = (ltc_process_temp, stop_event)
                 log.info(f"Started timecode generation on device {device} at {fps} fps")
                 time.sleep(3)
         elif action == "jamsync":
@@ -924,10 +924,10 @@ def generate_timecode(  # numpydoc ignore=GL03
                 stop_event.set()
                 ltc_process_temp.join()
                 log.info("Stopped jamsync timecode generation")
-        elif action == "stop" and ltc_process is not None:
+        elif action == "stop" and LTC_PROCESS is not None:
             log.info("Stopping timecode generation")
-            ltc_process[1].set()
-            ltc_process = None
+            LTC_PROCESS[1].set()
+            LTC_PROCESS = None
         else:
             log.warning("No valid options for timecode generator provided!")
     except (RuntimeError, sounddevice.PortAudioError) as e:
@@ -1068,27 +1068,26 @@ def preview_stream(action: str) -> None:  # numpydoc ignore=GL03
     """
     log = logger.bind(command="preview-stream")
     global CONNECTED_GOPROS
-    global PREVIEW_PROCESSES
+    global PREVIEW_PROCESS
     try:
-        # cams_available = CONNECTED_SERIALS is not None and len(CONNECTED_SERIALS) > 0
-        cams_available = True
+        cams_available = CONNECTED_GOPROS is not None and len(CONNECTED_GOPROS) > 0
         if action == "start" and cams_available:
-            stop_event = multiprocessing.Event()
-            preview_process = Process(
-                target=_run_preview,
-                args=(serializable_connections(CONNECTED_GOPROS), stop_event),
-            )
-            preview_process.start()
-            PREVIEW_PROCESSES.append((preview_process, stop_event))
+            if PREVIEW_PROCESS is not None:
+                log.info("Preview Stream already running")
+            else:
+                stop_event = multiprocessing.Event()
+                preview_process_temp = Process(
+                    target=_run_preview,
+                    args=(serializable_connections(CONNECTED_GOPROS), stop_event),
+                )
+                preview_process_temp.start()
+                PREVIEW_PROCESS = (preview_process_temp, stop_event)
         elif action == "stop":
-            delete_list = []
-            for idx, p in enumerate(PREVIEW_PROCESSES):
-                p[1].set()
-                if not p[0].is_alive():
-                    delete_list.append(idx)
-            for i in sorted(delete_list, reverse=True):
-                del PREVIEW_PROCESSES[i]
-                log.info(f"Stopped preview process {i}")
+            if PREVIEW_PROCESS is None:
+                log.info("No active Preview Stream running")
+            else:
+                PREVIEW_PROCESS[1].set()
+                PREVIEW_PROCESS = None
         else:
             log.warning(
                 "Preview could not be started: Invalid parameters/No GoPros available"
@@ -1334,12 +1333,14 @@ def _exit_handler() -> None:
     log.debug("Exiting pyTermite CLI")
     log.info("Closing all connections")
     global CONNECTED_GOPROS
-    global ltc_processes
-    global PREVIEW_PROCESSES
-    for preview_pair in PREVIEW_PROCESSES:
-        preview_pair[1].set()
-    for ltc_pair in ltc_processes:
-        ltc_pair[1].set()
+    global LTC_PROCESS
+    global PREVIEW_PROCESS
+    if PREVIEW_PROCESS is not None:
+        PREVIEW_PROCESS[1].set()
+        PREVIEW_PROCESS = None
+    if LTC_PROCESS is not None:
+        LTC_PROCESS[1].set()
+        LTC_PROCESS = None
     asyncio.run(close_gopros(gopros=CONNECTED_GOPROS))
 
 
