@@ -6,13 +6,13 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from pytermite import connection
 
-from unittest.mock import AsyncMock, MagicMock
-from types import SimpleNamespace
 
 class FakeWired:
     def __init__(self, serial=None):
@@ -22,13 +22,14 @@ class FakeWired:
 
     async def open(self, retries=1, timeout=1):
         self.open_called = True
-    
+
     async def close(self):
         self.closed = True
 
     @property
     async def name(self):
         return self.identifier
+
 
 class FakeWireless:
     def __init__(self, target, *args, **kwargs):
@@ -48,6 +49,7 @@ class FakeWireless:
     async def name(self):
         return self.identifier
 
+
 class CreateGoPros:
     """
     Test the creation of ``WirelessConnection`` and ``WiredConnection`` instances.
@@ -63,16 +65,14 @@ class CreateGoPros:
         assert set(g.keys()) == set(inp.keys())
         assert all(isinstance(v, FakeWired) for v in g.values())
 
-
     @pytest.mark.asyncio
     async def test_create_wireless_gopros_from_dict(monkeypatch):
-        
+
         monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
         inp = {"camA": "S1", "camB": "S2"}
         g = connection.create_wireless_gopros(inp)
         assert set(g.keys()) == set(inp.keys())
         assert all(isinstance(v, FakeWireless) for v in g.values())
-
 
     @pytest.mark.asyncio
     async def test_create_wired_gopros_from_set(monkeypatch):
@@ -81,7 +81,6 @@ class CreateGoPros:
         inp = {"S1", "S2"}
         g = connection.create_wired_gopros(inp)
         assert set(g.keys()) == inp
-
 
     @pytest.mark.asyncio
     async def test_create_wireless_gopros_from_set(monkeypatch):
@@ -115,8 +114,8 @@ class CreateGoPros:
         # nothing touched the disk
         assert not cohn_db_path.exists()
 
-class CloseGoPros:
 
+class CloseGoPros:
     @pytest.mark.asyncio
     async def test_connect_and_close_gopros(monkeypatch):
         """Create and close ``WiredConnection`` instances"""
@@ -158,6 +157,7 @@ class CloseGoPros:
         assert len(collected) == 2
         await connection.close_gopros(gopros)
         assert all(v.closed for v in gopros.values())
+
 
 @pytest.mark.asyncio
 async def test_scan_for_gopros_cancels_interrupt_waiter_on_timeout(monkeypatch):
@@ -229,11 +229,8 @@ async def test_make_gopro_request(monkeypatch):
             self.ip_address = "172.16.0.1"
 
     class FakeWireless:
-
         class FakeCohn:
-
             class FakeCredentials:
-
                 def __init__(self):
                     self.certificate = "fake_cert"
                     self.username = "fake_user"
@@ -242,7 +239,14 @@ async def test_make_gopro_request(monkeypatch):
             def __init__(self):
                 self.credentials = self.FakeCredentials()
 
-        def __init__(self, target, interfaces=None, keep_alive_interval=None, maintain_state=None, cohn_db=None):
+        def __init__(
+            self,
+            target,
+            interfaces=None,
+            keep_alive_interval=None,
+            maintain_state=None,
+            cohn_db=None,
+        ):
             self.identifier = target
             self.is_ble_connected = True
             self._ble = True
@@ -253,7 +257,12 @@ async def test_make_gopro_request(monkeypatch):
 
     monkeypatch.setattr(connection, "WiredConnection", FakeWired)
     monkeypatch.setattr(connection, "WirelessConnection", FakeWireless)
-    gopros = {"a": FakeWired("S1"), "b": FakeWireless("S2"), "c": "192.168.0.20", "d": int(5)}
+    gopros = {
+        "a": FakeWired("S1"),
+        "b": FakeWireless("S2"),
+        "c": "192.168.0.20",
+        "d": 5,
+    }
 
     for gp in gopros.values():
         assert connection.make_gopro_request(gp, "/status", timeout=0.01) is None
@@ -267,7 +276,7 @@ async def test_load_cohn_identifiers(monkeypatch, tmp_path):
         '"1": {"serial": "S1"}, '
         '"2": {"serial": "S2"}, '
         '"3": {"serial": "S3"}'
-        '}}'
+        "}}"
     )
 
     json_file2 = tmp_path / "identifiers2.json"
@@ -276,7 +285,7 @@ async def test_load_cohn_identifiers(monkeypatch, tmp_path):
         '"1": {"serial": "S1"}, '
         '"2": {"serial": "S2"}, '
         '"3": {"serial": "S3"}'
-        '}}'
+        "}}"
     )
 
     loaded_identifiers1 = connection.load_cohn_identifiers(str(json_file1))
@@ -288,11 +297,8 @@ async def test_load_cohn_identifiers(monkeypatch, tmp_path):
 @pytest.mark.asyncio
 async def test_create_cohn_gopros(monkeypatch):
     class FakeWireless:
-
         class FakeCohn:
-
             class FakeCredentials:
-
                 def __init__(self):
                     self.certificate = "fake_cert"
                     self.username = "fake_user"
@@ -301,7 +307,14 @@ async def test_create_cohn_gopros(monkeypatch):
             def __init__(self):
                 self.credentials = self.FakeCredentials()
 
-        def __init__(self, target, interfaces=None, keep_alive_interval=None, maintain_state=None, cohn_db=None):
+        def __init__(
+            self,
+            target,
+            interfaces=None,
+            keep_alive_interval=None,
+            maintain_state=None,
+            cohn_db=None,
+        ):
             self.identifier = target
             self.is_ble_connected = True
             self._ble = True
@@ -356,14 +369,21 @@ async def test_connect_gopros_wireless_success(monkeypatch):
             return FakeGoProResp()
 
     class FakeWireless:
-        def __init__(self, target, interfaces=None, keep_alive_interval=None, maintain_state=None, cohn_db=None):
+        def __init__(
+            self,
+            target,
+            interfaces=None,
+            keep_alive_interval=None,
+            maintain_state=None,
+            cohn_db=None,
+        ):
             self.identifier = target
             self.is_ble_connected = True
             self._ble = True
             self.open_called = False
             self.closed = False
             self._is_open = True
-            
+
             self.ble_command = FakeBleCommand()
             self.cohn = FakeCohn()
             self.access_point = FakeAccessPoint()
@@ -378,11 +398,13 @@ async def test_connect_gopros_wireless_success(monkeypatch):
     gopros = {"a": FakeWireless("S1"), "b": FakeWireless("S2")}
 
     yielded_gopros = [
-        gp async for gp in connection.connect_gopros_wireless(
+        gp
+        async for gp in connection.connect_gopros_wireless(
             gopros, ssid="test_ssid", password="test_pass"
         )
     ]
     assert set(yielded_gopros) == set(gopros.values())
+
 
 @pytest.fixture
 def fake_open_connection(monkeypatch):
@@ -396,6 +418,7 @@ def fake_open_connection(monkeypatch):
 
     monkeypatch.setattr(connection.asyncio, "open_connection", _fake)
     return calls
+
 
 @pytest.mark.asyncio
 async def test_connect_gopros_cohn(fake_open_connection):
@@ -419,7 +442,6 @@ async def test_connect_gopros_cohn(fake_open_connection):
     assert yielded == list(gopros.values())
     assert all(gp.open_called for gp in gopros.values())
     assert fake_open_connection == [("192.168.0.30", 443), ("192.168.0.31", 443)]
-
 
 
 # @pytest.mark.asyncio
