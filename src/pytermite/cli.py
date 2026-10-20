@@ -1034,7 +1034,7 @@ def change_setting(  # numpydoc ignore=GL03
         else:
             sid, oid = parse_setting(setting, option)
             sname, oname = parse_setting(setting, option, mode="name")
-            
+
             request_path = f"gopro/camera/setting?option={oid}&setting={sid}"
             response = make_gopro_request(connection, request_path)
             if response is not None and response.status_code == 200:
@@ -1046,14 +1046,17 @@ def change_setting(  # numpydoc ignore=GL03
     if KEEP_OPEN:
         _run_repl(click.get_current_context())
 
-async def find_connection(identifier:str):
+
+async def find_connection(identifier: str):
     global CONNECTED_GOPROS
     for con in CONNECTED_GOPROS:
         print(con.identifier, identifier)
-        if con.identifier == identifier \
-            or (isinstance(con, WiredConnection) and await con.name == identifier):
-                return con
+        if con.identifier == identifier or (
+            isinstance(con, WiredConnection) and await con.name == identifier
+        ):
+            return con
     return None
+
 
 @cli.command()
 @click.argument("action", type=click.Choice(["start", "stop"]), default=None)
