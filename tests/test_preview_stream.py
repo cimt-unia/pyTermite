@@ -23,7 +23,6 @@ import pytest
 from pytermite import preview_stream
 from pytermite.preview_stream import PreviewStream, UDPReceiver
 
-
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
