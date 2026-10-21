@@ -16,6 +16,7 @@ from multiprocessing.synchronize import Event as SyncEvent
 import PIL.Image
 import PIL.ImageTk
 import structlog
+from screeninfo import get_monitors
 
 from pytermite.connection import WiredConnection, WirelessConnection, make_gopro_request
 
@@ -61,9 +62,16 @@ class PreviewStream:
         self.ips: dict[str, int] = {}
 
         self.root = tk.Tk()
-        self.canvas_size = math.ceil(math.sqrt(len(connection)))
-        self.canvas = tk.Canvas(self.root, width=1000, height=1000, bg="white")
-        self.canvas.grid(row=self.canvas_size, column=self.canvas_size)
+        self.canvas_size = min(math.ceil(math.sqrt(len(connection))), 3)
+        canvas_width, canvas_height, cam_width, cam_height = self.get_canvas_resolution(
+            200
+        )
+        self.cam_width = cam_width
+        self.cam_height = cam_height
+        self.canvas = tk.Canvas(
+            self.root, width=canvas_width, height=canvas_height, bg="white"
+        )
+        self.canvas.grid(row=0, column=0)
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -82,12 +90,10 @@ class PreviewStream:
 
         Runs the asynchronous stream setup in its own event loop.
         """
-        total_canvas_width = 1000
-
         for index, connection in enumerate(self.connection):
             self.ips[connection.ip_address] = 8554 + index
 
-        asyncio.run(self.show_streams(total_canvas_width))
+        asyncio.run(self.show_streams())
 
     def on_close(self) -> None:
         """
@@ -110,14 +116,21 @@ class PreviewStream:
             if response is None or not response.ok:
                 self.logger.warning(f"Failed to stop stream for {ip}: {response}")
 
-    async def show_streams(self, total_canvas_width: int) -> None:
+    def get_canvas_resolution(self, margin: int = 0):
+        monitors = get_monitors()
+        primary = next((m for m in monitors if m.is_primary), monitors[0])
+        cam_width = (primary.width - margin) // self.canvas_size
+        cam_height = (cam_width * 9) // 16
+        return (
+            cam_width * self.canvas_size,
+            cam_height * ((len(self.connection) + 2) // 3),
+            cam_width,
+            cam_height,
+        )
+
+    async def show_streams(self) -> None:
         """
         Start the cameras' streams and display them until the stop event is set.
-
-        Parameters
-        ----------
-        total_canvas_width : int
-            Width in pixels of the whole preview canvas, split among the streams.
         """
         for connection in self.connection:
             response = make_gopro_request(
@@ -143,7 +156,7 @@ class PreviewStream:
 
             self.logger.debug(f"Starting new Receiver for port {port}")
             receiver = UDPReceiver(
-                self.canvas, row, col, ip, port, self.canvas_size, total_canvas_width
+                self.canvas, row, col, ip, port, self.cam_width, self.cam_height
             )
             stream = threading.Thread(target=receiver.start, daemon=True)
             stream.start()
@@ -168,10 +181,10 @@ class UDPReceiver:
         IP address of the camera streaming to this receiver.
     port : int
         UDP port to listen on.
-    canvas_size : int
-        Number of cells per row and column of the canvas grid.
-    total_canvas_width : int
-        Width in pixels of the whole canvas.
+    cam_width : int
+        Width in pixels reserved for this camera on the canvas.
+    cam_height : int
+        Height in pixels reserved for this camera on the canvas.
     """
 
     def __init__(
@@ -181,16 +194,16 @@ class UDPReceiver:
         col: int,
         ip: str,
         port: int,
-        canvas_size: int,
-        total_canvas_width: int,
+        cam_width: int,
+        cam_height: int,
     ) -> None:
         self.canvas = canvas
         self.row = row
         self.column = col
         self.ip = ip
         self.port = port
-        self.canvas_size = canvas_size
-        self.total_canvas_width = total_canvas_width
+        self.cam_width = cam_width
+        self.cam_height = cam_height
         self.current_img: PIL.ImageTk.PhotoImage | None = None
         self.canvas_image_id: int | None = None
         self.process: asyncio.subprocess.Process | None = None
@@ -202,8 +215,8 @@ class UDPReceiver:
         Frames are read as raw RGB from ffmpeg's stdout and scheduled for drawing
         on the Tk main loop.
         """
-        width = max(self.total_canvas_width // self.canvas_size, 320)
-        height = (width * 9) // 16
+        width = self.cam_width
+        height = self.cam_height
         frame_size = width * height * 3
 
         cmd = [
