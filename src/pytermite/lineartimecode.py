@@ -11,14 +11,12 @@ write it into the metadata of the video file.
 #
 #  SPDX-License-Identifier: BSD-3-Clause
 
-import multiprocessing
 import pathlib
 import queue
 import threading
 from multiprocessing.synchronize import Event as SyncEvent
 from typing import TYPE_CHECKING
 
-import ffmpeg
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
@@ -74,8 +72,8 @@ class LTCGenerator:
     def __init__(self, config: dict, stop_event: SyncEvent) -> None:
         self.stop_event = stop_event
         self.sample_rate = config["sample_rate"]
-        self.fps = config["fps"]
         self.double_frames = config["fps"] == 50
+        self.fps = config["fps"] // 2 if self.double_frames else config["fps"]
         self.device = config["device"]
         self.samples_per_frame = self.sample_rate // self.fps
         self.samples_per_bit = int(self.sample_rate / self.fps / 80)
@@ -200,6 +198,10 @@ class LTCGenerator:
         for conv in conversions:
             word |= conv
 
+        parity_bit = 59 if self.fps == 25 else 27
+        word &= ~(1 << parity_bit)
+        word |= (word.bit_count() % 2) << parity_bit
+
         timecode = f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
         return word, timecode
 
@@ -299,242 +301,3 @@ class LTCGenerator:
             ):
                 while not self.stop_event.is_set():
                     sd.sleep(1000)
-
-
-class LTCDecoder:
-    """
-    Class for decoding Linear Time Code (LTC) from audio tracks in video files.
-
-    It extracts the timecode from the audio and writes it into the metadata of
-    the video file.
-    """
-
-    def __init__(self) -> None:
-        self.timecode_format = "HH:MM:SS:FF"
-
-    @staticmethod
-    def _extract_audio(input_path: str, wav_path: str) -> None:
-        """
-        Extract the audio track of a video file to a WAV file.
-
-        Parameters
-        ----------
-        input_path : str
-            Path to the input video file.
-        wav_path : str
-            Path of the WAV file to write.
-        """
-        ffmpeg.input(input_path).output(wav_path, vn=None).run(overwrite_output=True)
-
-    @staticmethod
-    def _write_timecode(input_path: str, output_path: str, timecode: str) -> None:
-        """
-        Copy a video file and set its timecode metadata.
-
-        Parameters
-        ----------
-        input_path : str
-            Path to the input video file.
-        output_path : str
-            Path of the output video file to write.
-        timecode : str
-            Timecode to write into the output file, e.g. "01:00:00:00".
-        """
-        ffmpeg.input(input_path).output(output_path, c="copy", timecode=timecode).run(
-            overwrite_output=True
-        )
-
-    @staticmethod
-    def _convert_position_bits(
-        frame_bits: np.typing.NDArray, position: str, fps: int
-    ) -> np.typing.NDArray:
-        """
-        Extract the unit and tens bits of a timecode position from frame bits.
-
-        Parameters
-        ----------
-        frame_bits : np.typing.NDArray
-            Bits of each frame, one row per frame.
-        position : str
-            Timecode position to convert, e.g. "FF" or "HH".
-        fps : int
-            Frame rate the position map is looked up with.
-
-        Returns
-        -------
-        np.typing.NDArray
-            Decoded value of the position for each frame.
-        """
-        units = None
-        tens = None
-        shift_units = position_map[fps][position]["units"]
-        shift_tens = position_map[fps][position]["tens"]
-
-        units = frame_bits[:, shift_units[0] : shift_units[0] + 4]
-        total_units = units @ np.array([1, 2, 4, 8])
-
-        if position in ["FF", "HH"]:
-            tens = frame_bits[:, shift_tens[0] : shift_tens[0] + 2]
-            total_tens = tens @ np.array([1, 2])
-        else:
-            if len(shift_tens) > 1:
-                tens_one = frame_bits[:, shift_tens[0] : shift_tens[0] + 2]
-                tens_two = frame_bits[:, shift_tens[1] : shift_tens[1] + 1]
-                tens = np.concatenate([tens_one, tens_two], axis=1)
-            else:
-                tens = frame_bits[:, shift_tens[0] : shift_tens[0] + 3]
-            total_tens = tens @ np.array([1, 2, 4])
-
-        return total_units + total_tens * 10
-
-    def decode_ltc(self, input_path: str, fps: int) -> None:
-        """
-        Decode the LTC signal from the already extracted audio track of a video file.
-
-        Write the extracted timecode into the metadata of the video file after decoding.
-
-        Parameters
-        ----------
-        input_path : str
-            Path to the input video file.
-        fps : int
-            Frame rate of the LTC signal.
-        """
-        base_path = ".".join(input_path.split(".")[:-1])
-        audio_path = f"{base_path}.wav"
-        video_path = f"{base_path}_timecode.mp4"
-        self._extract_audio(input_path, audio_path)
-        data, samplerate = sf.read(audio_path)
-        if data.ndim > 1:
-            data = data[:, 0]
-        samples_per_bit = int(samplerate / fps / 80)
-        transitions = np.nonzero(np.diff(np.sign(data)))[0]
-        transition_diffs_short = (
-            np.diff(transitions) < (samples_per_bit * 0.75)
-        ).astype(int)
-        group_starts: list = []
-        group_lengths: list = []
-        idx_counter = 0
-        while idx_counter < len(transition_diffs_short):
-            if transition_diffs_short[idx_counter] == 0:
-                group_starts.append(idx_counter)
-                group_lengths.append(1)
-                idx_counter += 1
-            elif (
-                idx_counter < len(transition_diffs_short) - 1
-                and transition_diffs_short[idx_counter] == 1
-                and transition_diffs_short[idx_counter + 1] == 1
-            ) or (
-                transition_diffs_short[idx_counter] == 1
-                and idx_counter == len(transition_diffs_short) - 1
-            ):
-                group_starts.append(idx_counter)
-                group_lengths.append(2)
-                idx_counter += 2
-            else:
-                group_starts.append(idx_counter)
-                group_lengths.append(-1)
-                idx_counter += 1
-
-        group_starts_array = np.array(group_starts, dtype=np.int64)
-        group_lengths_array = np.array(group_lengths, dtype=np.int8)
-        group_values = transition_diffs_short[group_starts_array]
-
-        is_zero = (group_values == 0) & (group_lengths_array == 1)
-        is_one = (group_values == 1) & (group_lengths_array == 2)
-
-        labels = np.full(len(group_values), -1)
-        labels[is_zero] = 0
-        labels[is_one] = 1
-
-        sync_word = np.array(
-            [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], dtype=np.uint8
-        )
-
-        window = np.lib.stride_tricks.sliding_window_view(labels, window_shape=16)
-        sync_pos = np.nonzero(np.all(window == sync_word, axis=1))[0]
-        frame_starts = sync_pos - 80 + 16
-        valid_starts = frame_starts[
-            (frame_starts >= 0) & (frame_starts + 80 <= len(labels))
-        ]
-        indices = valid_starts[:, None] + np.arange(80)
-        frame_bits = labels[indices]
-
-        totals = {}
-        for position in position_map[fps]:
-            totals[position] = self._convert_position_bits(frame_bits, position, fps)
-
-        total_frames = [
-            h * 3600 * fps + m * 60 * fps + s * fps + f
-            for h, m, s, f in zip(
-                totals["HH"], totals["MM"], totals["SS"], totals["FF"], strict=True
-            )
-        ]
-
-        frame_diffs = np.diff(total_frames)
-        safety = 10
-        anchor_idx = np.where(
-            np.convolve(frame_diffs == 1, np.ones(safety, dtype=int), mode="valid")
-            == safety
-        )[0][0]
-
-        group_sample_positions = transitions[group_starts_array]
-        frame_sample_positions = group_sample_positions[valid_starts]
-
-        video_frame_offset = frame_sample_positions[anchor_idx] / samplerate * fps
-        frame0_total_frames = total_frames[anchor_idx] - round(video_frame_offset)
-
-        h = frame0_total_frames // (3600 * fps)
-        rest = frame0_total_frames % (3600 * fps)
-        m = rest // (60 * fps)
-        rest = rest % (60 * fps)
-        s = rest // fps
-        f = rest % fps
-
-        final_timecode = f"{h:02d}:{m:02d}:{s:02d}:{f:02d}"
-        self._write_timecode(input_path, video_path, final_timecode)
-
-
-def decode_timecode_batch(decode_tasks: list, max_processes: int = 8) -> None:
-    """
-    Decode LTC timecode from a batch of video files using multiprocessing.
-
-    Parameters
-    ----------
-    decode_tasks : list of tuple of (str, int)
-        Pairs of ``(input_path, fps)`` to decode, one per video file.
-    max_processes : int, default 8
-        Maximum number of worker processes.
-    """
-    with multiprocessing.Pool(processes=max_processes) as pool:
-        results = pool.starmap(start_ltc_decoder, decode_tasks)
-    for result in results:
-        if result[1]:
-            continue
-        logger.warning(f"Error when decoding: {result[0]}")
-
-
-def start_ltc_decoder(input_path: str, fps: int = 50) -> tuple[str, bool]:
-    """
-    Start the LTC decoder for a given video file and frame rate.
-
-    Parameters
-    ----------
-    input_path : str
-        Path to the input video file.
-    fps : int, default 50
-        Frame rate of the LTC signal.
-
-    Returns
-    -------
-    tuple of (str, bool)
-        The input path and whether decoding succeeded.
-    """
-    success = False
-    try:
-        decoder = LTCDecoder()
-        decoder.decode_ltc(input_path, fps)
-        success = True
-    except Exception as e:
-        logger.warning(f"Error when decoding: {input_path}, {e}")
-    return (input_path, success)
