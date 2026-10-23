@@ -1,4 +1,4 @@
-## [unreleased]
+## [1.0.0] - 2026-10-14
 
 ### 🚀 Features
 
@@ -62,9 +62,6 @@
 
 ### 📚 Documentation
 
-- Fix readthedocs build
-- Remove environment.yml from readthedocs post_checkout step
-- Avoid dirty Git index issues in readthedocs build
 - Build CLI reference automatically from docstrings
 - Fix docstring
 - Truncate help built from docstrings for CLI commands
@@ -72,6 +69,18 @@
 ### 🧪 Testing
 
 - Disable usb scan test
+
+### ⚙️ Miscellaneous Tasks
+
+- Update changelog
+
+## [archive/dependabot/github_actions/actions-cb078444e2] - 2026-04-01
+
+### 📚 Documentation
+
+- Fix readthedocs build
+- Remove environment.yml from readthedocs post_checkout step
+- Avoid dirty Git index issues in readthedocs build
 
 ### ⚙️ Miscellaneous Tasks
 
