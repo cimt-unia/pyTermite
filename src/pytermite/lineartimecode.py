@@ -253,13 +253,10 @@ class LTCGenerator:
         if self.use_system_time:
             now = datetime.now()
             self.time_dict = {"hh": now.hour, "mm": now.minute, "ss": now.second}
-        n = 2 if self.double_frames else 1
         while not self.stop_event.is_set():
             word, timecode = self.create_next_bitword()
             samples = np.array(self.sample_word(word), dtype=np.float32)
-            for i in range(n):
-                # Only the first copy carries the timecode: one marker per word.
-                self.frame_queue.put((samples, timecode if i == 0 else None))
+            self.frame_queue.put((samples, timecode if i == 0 else None))
 
     # ruff: ignore[ARG002]
     def callback(
