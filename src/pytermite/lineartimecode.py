@@ -279,6 +279,7 @@ class LTCGenerator:
         status : sounddevice.CallbackFlags
             Status flags of the audio stream.
         """
+        now = local_clock()
         try:
             samples, timecode = self.frame_queue.get_nowait()
         except queue.Empty:
@@ -286,8 +287,10 @@ class LTCGenerator:
             return
         outdata[:, 0] = samples
         if timecode is not None:
-            timestamp = local_clock()
-            self.outlet.push_sample([timecode], timestamp)
+            latency = time.outputBufferDacTime - time.currentTime
+            if not 0.0 <= latency < 0.5:   # some backends report 0 or garbage
+                latency = 0.0
+            self.outlet.push_sample([timecode], now + latency)
 
     def run(self) -> None:
         """
