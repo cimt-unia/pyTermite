@@ -256,7 +256,7 @@ class LTCGenerator:
         while not self.stop_event.is_set():
             word, timecode = self.create_next_bitword()
             samples = np.array(self.sample_word(word), dtype=np.float32)
-            self.frame_queue.put((samples, timecode if i == 0 else None))
+            self.frame_queue.put((samples, timecode))
 
     # ruff: ignore[ARG002]
     def callback(
